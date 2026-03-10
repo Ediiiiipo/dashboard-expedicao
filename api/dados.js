@@ -9,16 +9,33 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const response = await fetch(SHEETS_CSV_URL);
+    const response = await fetch(SHEETS_CSV_URL, {
+      redirect: 'follow',
+      headers: {
+        'User-Agent': 'Mozilla/5.0',
+        'Accept': 'text/csv,text/plain,*/*'
+      }
+    });
 
     if (!response.ok) {
-      return res.status(502).json({ error: `Erro ao buscar planilha: HTTP ${response.status}` });
+      let body = '';
+      try { body = await response.text(); } catch (_) {}
+      return res.status(502).json({
+        error: `Erro ao buscar planilha: HTTP ${response.status}`,
+        url: response.url,
+        detail: body.slice(0, 300)
+      });
     }
 
     const csvText = await response.text();
+
+    if (!csvText || csvText.trim().length === 0) {
+      return res.status(502).json({ error: 'Planilha retornou conteúdo vazio. Verifique se ela está publicada.' });
+    }
+
     return res.status(200).send(csvText);
 
   } catch (err) {
-    return res.status(500).json({ error: `Erro interno: ${err.message}` });
+    return res.status(500).json({ error: `Erro interno: ${err.message}`, stack: err.stack });
   }
 }
