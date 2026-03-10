@@ -1,3 +1,5 @@
+const SHEETS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQFqXTf8tvQCq5IScsrMrwUuB8xKeCeFKnJme3f5160M4fV68QTQHdg-n3rHKifV45gz3wLsTcZGNLV/pub?gid=0&single=true&output=csv';
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -6,62 +8,15 @@ module.exports = async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const taskId   = process.env.SHOPEE_TASK_ID;
-  const cookie   = process.env.SHOPEE_COOKIE;
-  const csrf     = process.env.SHOPEE_CSRF_TOKEN;
-  const deviceId = process.env.SHOPEE_DEVICE_ID;
-
-  if (!taskId || !cookie || !csrf || !deviceId) {
-    return res.status(500).json({
-      error: 'Configuração incompleta. Verifique as variáveis de ambiente no Vercel: SHOPEE_TASK_ID, SHOPEE_COOKIE, SHOPEE_CSRF_TOKEN, SHOPEE_DEVICE_ID.'
-    });
-  }
-
   try {
-    const url = `https://spx.shopee.com.br/api/in-station/lmhub/audit/target/list?page_no=1&count=9999&task_id=${taskId}`;
-
-    const response = await fetch(url, {
-      headers: {
-        'accept': 'application/json, text/plain, */*',
-        'accept-language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
-        'accept-encoding': 'gzip, deflate, br',
-        'app': 'FMS Portal',
-        'cache-control': 'no-cache',
-        'connection': 'keep-alive',
-        'cookie': cookie,
-        'device-id': deviceId,
-        'origin': 'https://spx.shopee.com.br',
-        'pragma': 'no-cache',
-        'referer': 'https://spx.shopee.com.br/',
-        'sec-ch-ua': '"Google Chrome";v="145", "Chromium";v="145", "Not/A)Brand";v="99"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"Windows"',
-        'sec-fetch-dest': 'empty',
-        'sec-fetch-mode': 'cors',
-        'sec-fetch-site': 'same-origin',
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
-        'x-csrftoken': csrf,
-      }
-    });
+    const response = await fetch(SHEETS_CSV_URL);
 
     if (!response.ok) {
-      let body = '';
-      try { body = await response.text(); } catch (_) {}
-      return res.status(response.status).json({
-        error: `Shopee API retornou status ${response.status}`,
-        detail: body.slice(0, 500)
-      });
+      return res.status(502).json({ error: `Erro ao buscar planilha: HTTP ${response.status}` });
     }
 
-    const data = await response.json();
-
-    if (data.retcode !== 0) {
-      return res.status(401).json({
-        error: 'Sessão expirada ou inválida. Atualize os cookies nas variáveis de ambiente do Vercel.'
-      });
-    }
-
-    return res.status(200).json(data);
+    const csvText = await response.text();
+    return res.status(200).send(csvText);
 
   } catch (err) {
     return res.status(500).json({ error: `Erro interno: ${err.message}` });

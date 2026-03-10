@@ -445,21 +445,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return { retcode: 0, data: { list, all_qty: allQty, validated_qty: validatedQty } };
     }
 
-    // Busca CSV do Google Sheets e atualiza o dashboard
+    // Busca CSV via proxy Vercel e atualiza o dashboard
     async function fetchData() {
         const btn = document.getElementById('btn-refresh');
         const status = document.getElementById('last-update');
-
-        if (!SHEETS_CSV_URL) {
-            if (status) status.textContent = 'Configure a URL do Google Sheets em script.js (SHEETS_CSV_URL).';
-            return;
-        }
 
         if (btn) { btn.textContent = 'Atualizando...'; btn.disabled = true; }
         if (status) status.textContent = 'Buscando dados...';
 
         try {
-            const res = await fetch(SHEETS_CSV_URL);
+            const res = await fetch('/api/dados');
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const csvText = await res.text();
             const data = parseCsvToAPIData(csvText);
