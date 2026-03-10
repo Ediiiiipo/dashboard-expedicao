@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Produtividade - Expedição</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <div class="logo-section">
+                <div class="brand-header">
+                    <svg class="truck-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M1 6h14v9H1V6zm14 0h3l3 3.5V15h-6V6z" stroke="currentColor" stroke-width="2"
+                            stroke-linejoin="round" />
+                        <circle cx="5.5" cy="17.5" r="2.5" stroke="currentColor" stroke-width="2" fill="none" />
+                        <circle cx="16.5" cy="17.5" r="2.5" stroke="currentColor" stroke-width="2" fill="none" />
+                        <path d="M8 17.5h6" stroke="currentColor" stroke-width="2" />
+                    </svg>
+                    <span class="brand-shopee-ops">SHOPEE HUB</span>
+                </div>
+
+                <p class="brand-subtitle">Expedition Insight</p>
+            </div>
+            <div class="header-ops-clock">
+                <div class="input-card header-input-card">
+                    <span class="stat-title">Janela de Ops Clock</span>
+                    <div class="ops-inputs">
+                        <div class="input-group">
+                            <label for="opsStart">Início</label>
+                            <input type="time" id="opsStart" class="ops-time-input">
+                        </div>
+                        <div class="input-group">
+                            <label for="opsEnd">Fim</label>
+                            <input type="time" id="opsEnd" class="ops-time-input">
+                        </div>
+                        <div class="input-group">
+                            <label for="opsCount">Operadores</label>
+                            <input type="number" id="opsCount" class="ops-time-input" min="1" value="1"
+                                style="width: 60px;">
+                        </div>
+                    </div>
+                </div>
+                <div class="gauge-card header-gauge-card">
+                    <h3>Meta giro de bancada</h3>
+                    <div class="gauge-container header-gauge-container">
+                        <canvas id="gaugeTargetTurnover"></canvas>
+                        <div class="gauge-value" id="valTargetTurnover">0</div>
+                    </div>
+                    <p class="gauge-label">Meta Final/Hora</p>
+                </div>
+                <div class="status-card header-status-card">
+                    <h3 class="status-title">Performance Operacional</h3>
+                    <div class="status-light" id="statusLight"></div>
+                    <span class="status-text" id="statusText">--</span>
+                </div>
+            </div>
+            <div class="date-section">
+                <p id="current-date"></p>
+            </div>
+        </header>
+
+        <main>
+            <!-- Gauges Section -->
+            <section class="gauges-grid">
+                <div class="gauge-card">
+                    <h3>Pacotes Expedidos</h3>
+                    <div class="gauge-container">
+                        <canvas id="gaugeTotal"></canvas>
+                        <div class="gauge-value" id="valTotal">0%</div>
+                    </div>
+                    <p class="gauge-label">Final vs Inicial</p>
+                </div>
+                <div class="gauge-card">
+                    <h3>Validação de Rotas</h3>
+                    <div class="gauge-container">
+                        <canvas id="gaugeRoutes"></canvas>
+                        <div class="gauge-value" id="valRoutes">0%</div>
+                    </div>
+                    <p class="gauge-label">Rotas Concluídas</p>
+                </div>
+                <div class="gauge-card">
+                    <h3>Giro de Bancada / Hora</h3>
+                    <div class="gauge-container">
+                        <canvas id="gaugeBenchTurnover"></canvas>
+                        <div class="gauge-value" id="valBenchTurnover">0</div>
+                    </div>
+                    <p class="gauge-label">Média Rotas/Hora</p>
+                </div>
+
+                <div class="gauge-card">
+                    <h3>Acuracidade de Processamento</h3>
+                    <div class="gauge-container">
+                        <canvas id="gaugeAccuracy"></canvas>
+                        <div class="gauge-value" id="valAccuracy">0%</div>
+                    </div>
+                    <p class="gauge-label">Livre de Erros</p>
+                </div>
+                <div class="gauge-card">
+                    <h3>Acuracidade de Expedição</h3>
+                    <div class="gauge-container">
+                        <canvas id="gaugeExpedition"></canvas>
+                        <div class="gauge-value" id="valExpedition">0%</div>
+                    </div>
+                    <p class="gauge-label">Total vs Sobras</p>
+                </div>
+    </div>
+    </section>
+
+    <!-- Stats Grid -->
+    <section class="stats-grid">
+        <div class="stat-card">
+            <span class="stat-title">Pacotes para Expedição</span>
+            <span class="stat-value" id="statTotalPackages">0</span>
+            <span class="stat-sub">Total Initial Orders</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-title">Rotas para Expedição</span>
+            <span class="stat-value" id="statTotalRoutes">0</span>
+            <span class="stat-sub">Total AT/TO</span>
+        </div>
+        <div class="stat-card warning">
+            <span class="stat-title">Erros Operacionais</span>
+            <span class="stat-value" id="statMissorted">0</span>
+            <span class="stat-sub">Missorted Orders</span>
+        </div>
+        <div class="stat-card danger">
+            <span class="stat-title">Sobras de Expedição</span>
+            <span class="stat-value" id="statMissing">0</span>
+            <span class="stat-sub">Missing Orders</span>
+        </div>
+    </section>
+
+    <!-- Tables Section -->
+    <div class="visuals-grid">
+        <section class="table-card card">
+            <h3>Produtividade por Colaborador</h3>
+            <div class="table-wrapper">
+                <table id="productivityTable">
+                    <thead>
+                        <tr>
+                            <th>Colaborador</th>
+                            <th>Rotas</th>
+                            <th>Rotas/Hora</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="table-card card">
+            <h3>Tempo Médio de Carregamento</h3>
+            <div class="table-wrapper">
+                <table id="timeTable">
+                    <thead>
+                        <tr>
+                            <th>Colaborador</th>
+                            <th>Tempo Médio</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="table-card card">
+            <h3>Acuracidade por Colaborador</h3>
+            <div class="table-wrapper">
+                <table id="accuracyTable">
+                    <thead>
+                        <tr>
+                            <th>Colaborador</th>
+                            <th>Sobras (Missing)</th>
+                            <th>Total Rotas</th>
+                            <th>Acuracidade %</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="table-card card">
+            <h3>Acuracidade por Rua</h3>
+            <div class="table-wrapper">
+                <table id="corridorTable">
+                    <thead>
+                        <tr>
+                            <th>Rua</th>
+                            <th>Erros (Missort)</th>
+                            <th>Acuracidade %</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="table-card card">
+            <h3>Carregamento por Onda</h3>
+            <div class="table-wrapper">
+                <table id="waveTable">
+                    <thead>
+                        <tr>
+                            <th>Rua</th>
+                            <th>Rotas Validadas</th>
+                            <th>Progresso %</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+
+    </div>
+    </main>
+
+    <!-- Data Refresh Area -->
+    <div id="data-refresh" class="data-refresh">
+        <button class="btn-primary" id="btn-refresh">Atualizar Dados</button>
+        <p id="last-update" class="file-name-hint">Carregando dados...</p>
+    </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+
+</html>
