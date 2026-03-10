@@ -1,3 +1,6 @@
+// URL do CSV publicado no Google Sheets - substitua após publicar a planilha
+const SHEETS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQFqXTf8tvQCq5IScsrMrwUuB8xKeCeFKnJme3f5160M4fV68QTQHdg-n3rHKifV45gz3wLsTcZGNLV/pub?gid=0&single=true&output=csv';
+
 document.addEventListener('DOMContentLoaded', () => {
     // Current Date
     const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
@@ -385,25 +388,83 @@ document.addEventListener('DOMContentLoaded', () => {
         updateOpsTarget();
     }
 
-    // Busca dados da API Vercel e atualiza o dashboard
+    // Converte "HH:MM:SS" ou "HH:MM" para Unix timestamp em segundos (data de hoje)
+    function timeToTimestamp(timeStr) {
+        if (!timeStr || timeStr === '0') return 0;
+        if (!isNaN(timeStr) && timeStr !== '') return parseFloat(timeStr);
+        const parts = timeStr.trim().split(':');
+        if (parts.length >= 2) {
+            const d = new Date();
+            d.setHours(parseInt(parts[0]) || 0, parseInt(parts[1]) || 0, parseInt(parts[2]) || 0, 0);
+            return d.getTime() / 1000;
+        }
+        return 0;
+    }
+
+    // Parser robusto de linha CSV (lida com aspas e vírgulas dentro de campos)
+    function parseCsvLine(line) {
+        const result = [];
+        let cur = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+            const c = line[i];
+            if (c === '"') { inQuotes = !inQuotes; continue; }
+            if (c === ',' && !inQuotes) { result.push(cur); cur = ''; continue; }
+            cur += c;
+        }
+        result.push(cur);
+        return result;
+    }
+
+    // Converte texto CSV para o formato esperado por processAPIData
+    function parseCsvToAPIData(csvText) {
+        const lines = csvText.trim().split('\n').filter(l => l.trim());
+        if (lines.length < 2) throw new Error('Planilha vazia ou sem dados.');
+
+        const headers = parseCsvLine(lines[0]).map(h => h.trim().replace(/"/g, ''));
+
+        const list = lines.slice(1).map(line => {
+            const values = parseCsvLine(line);
+            const item = {};
+            headers.forEach((h, i) => { item[h] = (values[i] || '').trim().replace(/"/g, ''); });
+
+            item.initial_qty           = parseInt(item.initial_qty) || 0;
+            item.final_qty             = parseInt(item.final_qty) || 0;
+            item.missort_qty           = parseInt(item.missort_qty) || 0;
+            item.missing_qty           = parseInt(item.missing_qty) || 0;
+            item.validation_status     = parseInt(item.validation_status) || 0;
+            item.validation_start_time = timeToTimestamp(item.validation_start_time);
+            item.validation_end_time   = timeToTimestamp(item.validation_end_time);
+
+            return item;
+        }).filter(item => item.target_id);
+
+        const allQty       = new Set(list.map(r => r.target_id)).size;
+        const validatedQty = new Set(list.filter(r => r.validation_status === 4).map(r => r.target_id)).size;
+
+        return { retcode: 0, data: { list, all_qty: allQty, validated_qty: validatedQty } };
+    }
+
+    // Busca CSV do Google Sheets e atualiza o dashboard
     async function fetchData() {
         const btn = document.getElementById('btn-refresh');
         const status = document.getElementById('last-update');
+
+        if (!SHEETS_CSV_URL) {
+            if (status) status.textContent = 'Configure a URL do Google Sheets em script.js (SHEETS_CSV_URL).';
+            return;
+        }
 
         if (btn) { btn.textContent = 'Atualizando...'; btn.disabled = true; }
         if (status) status.textContent = 'Buscando dados...';
 
         try {
-            const res = await fetch('/api/dados');
-            const data = await res.json();
-
-            if (data.error) throw new Error(data.error);
-
+            const res = await fetch(SHEETS_CSV_URL);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const csvText = await res.text();
+            const data = parseCsvToAPIData(csvText);
             processAPIData(data);
-
-            if (status) {
-                status.textContent = `Atualizado: ${new Date().toLocaleTimeString('pt-BR')}`;
-            }
+            if (status) status.textContent = `Atualizado: ${new Date().toLocaleTimeString('pt-BR')}`;
         } catch (err) {
             console.error('Erro ao buscar dados:', err);
             if (status) status.textContent = `Erro: ${err.message}`;

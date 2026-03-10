@@ -23,18 +23,34 @@ module.exports = async function handler(req, res) {
     const response = await fetch(url, {
       headers: {
         'accept': 'application/json, text/plain, */*',
-        'accept-language': 'pt-PT,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+        'accept-language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+        'accept-encoding': 'gzip, deflate, br',
         'app': 'FMS Portal',
+        'cache-control': 'no-cache',
+        'connection': 'keep-alive',
         'cookie': cookie,
         'device-id': deviceId,
+        'origin': 'https://spx.shopee.com.br',
+        'pragma': 'no-cache',
         'referer': 'https://spx.shopee.com.br/',
+        'sec-ch-ua': '"Google Chrome";v="145", "Chromium";v="145", "Not/A)Brand";v="99"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-origin',
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
         'x-csrftoken': csrf,
       }
     });
 
     if (!response.ok) {
-      return res.status(response.status).json({ error: `Shopee API retornou status ${response.status}` });
+      let body = '';
+      try { body = await response.text(); } catch (_) {}
+      return res.status(response.status).json({
+        error: `Shopee API retornou status ${response.status}`,
+        detail: body.slice(0, 500)
+      });
     }
 
     const data = await response.json();
