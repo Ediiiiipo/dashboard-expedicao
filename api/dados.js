@@ -1,4 +1,6 @@
-const SHEETS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQFqXTf8tvQCq5IScsrMrwUuB8xKeCeFKnJme3f5160M4fV68QTQHdg-n3rHKifV45gz3wLsTcZGNLV/pub?gid=0&single=true&output=csv';
+// Lê dados do JSONBin (publicados pelo pusher.js rodando no hub)
+const JSONBIN_BIN_ID  = process.env.JSONBIN_BIN_ID;
+const JSONBIN_API_KEY = process.env.JSONBIN_API_KEY;
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -8,34 +10,27 @@ module.exports = async function handler(req, res) {
     return res.status(200).end();
   }
 
+  if (!JSONBIN_BIN_ID) {
+    return res.status(500).json({ error: 'JSONBIN_BIN_ID não configurado nas variáveis de ambiente do Vercel.' });
+  }
+
   try {
-    const response = await fetch(SHEETS_CSV_URL, {
-      redirect: 'follow',
-      headers: {
-        'User-Agent': 'Mozilla/5.0',
-        'Accept': 'text/csv,text/plain,*/*'
-      }
-    });
+    const headers = { 'X-Bin-Meta': 'false' };
+    if (JSONBIN_API_KEY) headers['X-Access-Key'] = JSONBIN_API_KEY;
+
+    const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, { headers });
 
     if (!response.ok) {
-      let body = '';
-      try { body = await response.text(); } catch (_) {}
-      return res.status(502).json({
-        error: `Erro ao buscar planilha: HTTP ${response.status}`,
-        url: response.url,
-        detail: body.slice(0, 300)
-      });
+      return res.status(502).json({ error: `JSONBin retornou HTTP ${response.status}` });
     }
 
-    const csvText = await response.text();
+    const result = await response.json();
+    // JSONBin envolve os dados em { record: {...} }
+    const data = result.record || result;
 
-    if (!csvText || csvText.trim().length === 0) {
-      return res.status(502).json({ error: 'Planilha retornou conteúdo vazio. Verifique se ela está publicada.' });
-    }
-
-    return res.status(200).send(csvText);
+    return res.status(200).json(data);
 
   } catch (err) {
-    return res.status(500).json({ error: `Erro interno: ${err.message}`, stack: err.stack });
+    return res.status(500).json({ error: `Erro interno: ${err.message}` });
   }
 }

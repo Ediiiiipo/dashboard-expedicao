@@ -456,8 +456,8 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const res = await fetch('/api/dados');
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const csvText = await res.text();
-            const data = parseCsvToAPIData(csvText);
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
             processAPIData(data);
             if (status) status.textContent = `Atualizado: ${new Date().toLocaleTimeString('pt-BR')}`;
         } catch (err) {
