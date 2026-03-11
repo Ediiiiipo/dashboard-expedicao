@@ -27,8 +27,6 @@ function createWindow() {
 
   mainWindow.loadFile('index.html');
 
-  mainWindow.webContents.openDevTools();
-
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
@@ -167,10 +165,6 @@ ipcMain.handle('buscar-dados-completo', async () => {
     }
 
     const primeiraTarefa = tarefas[0];
-
-    // Log completo para diagnóstico
-    console.log('[buscar-dados-completo] Campos da tarefa:', Object.keys(primeiraTarefa).join(', '));
-    console.log('[buscar-dados-completo] Tarefa completa:', JSON.stringify(primeiraTarefa));
 
     // Tenta encontrar o task_id numérico
     const taskIdNumerico = primeiraTarefa.task_id || primeiraTarefa.id || primeiraTarefa.audit_task_id || null;

@@ -78,17 +78,12 @@ async function entrarNoDashboard() {
     if (!dashboardInicializado) {
         await carregarTaskId();
         registrarEventos();
-        setInterval(fetchData, 5 * 60 * 1000);
         dashboardInicializado = true;
     }
 
-    // Se não há task_id salvo, descobre automaticamente
-    const taskIdInput = document.getElementById('input-task-id');
-    if (!taskIdInput.value.trim()) {
-        await autoDescobrirTaskId();
-    } else {
-        fetchData();
-    }
+    // Sempre busca via buscar-dados-completo ao iniciar
+    // (faz warmup da sessão + pega sempre a tarefa mais recente)
+    await autoDescobrirTaskId();
 }
 
 async function autoDescobrirTaskId() {
