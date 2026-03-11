@@ -1,7 +1,62 @@
 {
-  "name": "dashboard-expedicao",
+  "name": "shopee-dashboard-expedicao",
   "version": "1.0.0",
-  "engines": {
-    "node": "24.x"
+  "description": "Dashboard de Produtividade - Expedição Shopee Hub",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "set NODE_ENV=development && electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win --x64",
+    "build:portable": "electron-builder --win portable --x64"
+  },
+  "keywords": ["shopee", "dashboard", "expedicao", "electron"],
+  "author": "Shopee Team",
+  "license": "MIT",
+  "dependencies": {
+    "fs-extra": "^11.2.0",
+    "playwright-core": "^1.40.0"
+  },
+  "devDependencies": {
+    "electron": "^28.3.3",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.shopee.dashboard-expedicao",
+    "productName": "Shopee - Dashboard Expedição",
+    "copyright": "Copyright © 2026 Shopee",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!**/*.map",
+      "!**/*.md",
+      "!api/**",
+      "!vercel.json",
+      "!pusher.js",
+      "!script.js"
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "requestedExecutionLevel": "asInvoker",
+      "sign": null,
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Shopee - Dashboard Expedição",
+      "deleteAppDataOnUninstall": false
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-Portable.${ext}"
+    }
   }
 }

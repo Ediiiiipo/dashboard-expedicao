@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.log
+
+# Arquivos de sessão e credenciais (nunca versionar)
+sessao.json
+sessao_state.json
+session.json
+
+# Arquivo de task ID local (gerado automaticamente)
+task.json

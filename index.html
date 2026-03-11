@@ -8,27 +8,140 @@
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      /* ===== TELA DE LOGIN ===== */
+      #tela-login {
+        display: flex;
+        position: fixed;
+        inset: 0;
+        background: var(--bg-color);
+        z-index: 999;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 1.5rem;
+      }
+      .login-box {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 3rem 2.5rem;
+        width: 420px;
+        max-width: 90vw;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.5rem;
+        text-align: center;
+      }
+      .login-logo {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-bottom: 0.5rem;
+      }
+      .login-logo svg { width: 36px; height: 36px; color: #f65e2d; }
+      .login-logo span { font-family: var(--font-heading); font-size: 1.4rem; font-weight: 700; color: var(--text-primary); }
+      .login-subtitle { color: var(--text-secondary); font-size: 0.9rem; }
+      #login-status {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        min-height: 1.2em;
+        text-align: center;
+      }
+
+      /* ===== TASK ID NO HEADER ===== */
+      .task-id-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+      }
+      .task-id-group label {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      #input-task-id {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        color: var(--text-primary);
+        padding: 0.4rem 0.6rem;
+        font-size: 0.9rem;
+        width: 130px;
+      }
+      #input-task-id:focus { outline: none; border-color: var(--accent-primary); }
+      #input-task-id.erro { border-color: var(--accent-danger); animation: shake 0.3s; }
+      @keyframes shake {
+        0%,100% { transform: translateX(0); }
+        25% { transform: translateX(-4px); }
+        75% { transform: translateX(4px); }
+      }
+
+      /* ===== LOADING OVERLAY ===== */
+      #loading-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.75);
+        z-index: 500;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      #loading-overlay.ativo { display: flex; }
+      .loading-spinner {
+        width: 48px;
+        height: 48px;
+        border: 4px solid rgba(255,255,255,0.1);
+        border-top-color: var(--accent-primary);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .loading-texto { color: var(--text-primary); font-size: 1rem; font-weight: 500; }
+      .loading-sub { color: var(--text-secondary); font-size: 0.85rem; }
+    </style>
 </head>
 
 <body>
+
+    <!-- ===== TELA DE LOGIN ===== -->
+    <div id="tela-login">
+      <div class="login-box">
+        <div class="login-logo">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M1 6h14v9H1V6zm14 0h3l3 3.5V15h-6V6z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            <circle cx="5.5" cy="17.5" r="2.5" stroke="currentColor" stroke-width="2" fill="none"/>
+            <circle cx="16.5" cy="17.5" r="2.5" stroke="currentColor" stroke-width="2" fill="none"/>
+            <path d="M8 17.5h6" stroke="currentColor" stroke-width="2"/>
+          </svg>
+          <span>SHOPEE HUB</span>
+        </div>
+        <p class="login-subtitle">Dashboard de Expedição</p>
+        <p id="login-status">Verificando sessão...</p>
+        <button class="btn-primary" id="btn-login" style="width:100%;">Entrar com conta Shopee</button>
+      </div>
+    </div>
+
+    <!-- ===== DASHBOARD ===== -->
+    <div id="tela-dashboard" style="display:none;">
     <div class="container">
         <header>
             <div class="logo-section">
                 <div class="brand-header">
                     <svg class="truck-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M1 6h14v9H1V6zm14 0h3l3 3.5V15h-6V6z" stroke="currentColor" stroke-width="2"
-                            stroke-linejoin="round" />
+                        <path d="M1 6h14v9H1V6zm14 0h3l3 3.5V15h-6V6z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
                         <circle cx="5.5" cy="17.5" r="2.5" stroke="currentColor" stroke-width="2" fill="none" />
                         <circle cx="16.5" cy="17.5" r="2.5" stroke="currentColor" stroke-width="2" fill="none" />
                         <path d="M8 17.5h6" stroke="currentColor" stroke-width="2" />
                     </svg>
                     <span class="brand-shopee-ops">SHOPEE HUB</span>
                 </div>
-
                 <p class="brand-subtitle">Expedition Insight</p>
             </div>
             <div class="header-ops-clock">
@@ -45,8 +158,11 @@
                         </div>
                         <div class="input-group">
                             <label for="opsCount">Operadores</label>
-                            <input type="number" id="opsCount" class="ops-time-input" min="1" value="1"
-                                style="width: 60px;">
+                            <input type="number" id="opsCount" class="ops-time-input" min="1" value="1" style="width: 60px;">
+                        </div>
+                        <div class="task-id-group">
+                            <label for="input-task-id">Task ID</label>
+                            <input type="text" id="input-task-id" placeholder="Ex: 123456">
                         </div>
                     </div>
                 </div>
@@ -96,7 +212,6 @@
                     </div>
                     <p class="gauge-label">Média Rotas/Hora</p>
                 </div>
-
                 <div class="gauge-card">
                     <h3>Acuracidade de Processamento</h3>
                     <div class="gauge-container">
@@ -113,126 +228,99 @@
                     </div>
                     <p class="gauge-label">Total vs Sobras</p>
                 </div>
-    </div>
-    </section>
+            </section>
 
-    <!-- Stats Grid -->
-    <section class="stats-grid">
-        <div class="stat-card">
-            <span class="stat-title">Pacotes para Expedição</span>
-            <span class="stat-value" id="statTotalPackages">0</span>
-            <span class="stat-sub">Total Initial Orders</span>
+            <!-- Stats Grid -->
+            <section class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-title">Pacotes para Expedição</span>
+                    <span class="stat-value" id="statTotalPackages">0</span>
+                    <span class="stat-sub">Total Initial Orders</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Rotas para Expedição</span>
+                    <span class="stat-value" id="statTotalRoutes">0</span>
+                    <span class="stat-sub">Total AT/TO</span>
+                </div>
+                <div class="stat-card warning">
+                    <span class="stat-title">Erros Operacionais</span>
+                    <span class="stat-value" id="statMissorted">0</span>
+                    <span class="stat-sub">Missorted Orders</span>
+                </div>
+                <div class="stat-card danger">
+                    <span class="stat-title">Sobras de Expedição</span>
+                    <span class="stat-value" id="statMissing">0</span>
+                    <span class="stat-sub">Missing Orders</span>
+                </div>
+            </section>
+
+            <!-- Tables Section -->
+            <div class="visuals-grid">
+                <section class="table-card card">
+                    <h3>Produtividade por Colaborador</h3>
+                    <div class="table-wrapper">
+                        <table id="productivityTable">
+                            <thead><tr><th>Colaborador</th><th>Rotas</th><th>Rotas/Hora</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </section>
+                <section class="table-card card">
+                    <h3>Tempo Médio de Carregamento</h3>
+                    <div class="table-wrapper">
+                        <table id="timeTable">
+                            <thead><tr><th>Colaborador</th><th>Tempo Médio</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </section>
+                <section class="table-card card">
+                    <h3>Acuracidade por Colaborador</h3>
+                    <div class="table-wrapper">
+                        <table id="accuracyTable">
+                            <thead><tr><th>Colaborador</th><th>Sobras (Missing)</th><th>Total Rotas</th><th>Acuracidade %</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </section>
+                <section class="table-card card">
+                    <h3>Acuracidade por Rua</h3>
+                    <div class="table-wrapper">
+                        <table id="corridorTable">
+                            <thead><tr><th>Rua</th><th>Erros (Missort)</th><th>Acuracidade %</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </section>
+                <section class="table-card card">
+                    <h3>Carregamento por Onda</h3>
+                    <div class="table-wrapper">
+                        <table id="waveTable">
+                            <thead><tr><th>Rua</th><th>Rotas Validadas</th><th>Progresso %</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <!-- Data Refresh Area -->
+        <div id="data-refresh" class="data-refresh">
+            <button class="btn-primary" id="btn-refresh">Atualizar</button>
+            <button class="btn-secondary" id="btn-login-novo" style="margin-left:0.75rem;">Trocar conta</button>
+            <p id="last-update" class="file-name-hint">Aguardando Task ID...</p>
         </div>
-        <div class="stat-card">
-            <span class="stat-title">Rotas para Expedição</span>
-            <span class="stat-value" id="statTotalRoutes">0</span>
-            <span class="stat-sub">Total AT/TO</span>
-        </div>
-        <div class="stat-card warning">
-            <span class="stat-title">Erros Operacionais</span>
-            <span class="stat-value" id="statMissorted">0</span>
-            <span class="stat-sub">Missorted Orders</span>
-        </div>
-        <div class="stat-card danger">
-            <span class="stat-title">Sobras de Expedição</span>
-            <span class="stat-value" id="statMissing">0</span>
-            <span class="stat-sub">Missing Orders</span>
-        </div>
-    </section>
-
-    <!-- Tables Section -->
-    <div class="visuals-grid">
-        <section class="table-card card">
-            <h3>Produtividade por Colaborador</h3>
-            <div class="table-wrapper">
-                <table id="productivityTable">
-                    <thead>
-                        <tr>
-                            <th>Colaborador</th>
-                            <th>Rotas</th>
-                            <th>Rotas/Hora</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </section>
-
-        <section class="table-card card">
-            <h3>Tempo Médio de Carregamento</h3>
-            <div class="table-wrapper">
-                <table id="timeTable">
-                    <thead>
-                        <tr>
-                            <th>Colaborador</th>
-                            <th>Tempo Médio</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </section>
-
-        <section class="table-card card">
-            <h3>Acuracidade por Colaborador</h3>
-            <div class="table-wrapper">
-                <table id="accuracyTable">
-                    <thead>
-                        <tr>
-                            <th>Colaborador</th>
-                            <th>Sobras (Missing)</th>
-                            <th>Total Rotas</th>
-                            <th>Acuracidade %</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </section>
-
-        <section class="table-card card">
-            <h3>Acuracidade por Rua</h3>
-            <div class="table-wrapper">
-                <table id="corridorTable">
-                    <thead>
-                        <tr>
-                            <th>Rua</th>
-                            <th>Erros (Missort)</th>
-                            <th>Acuracidade %</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </section>
-
-        <section class="table-card card">
-            <h3>Carregamento por Onda</h3>
-            <div class="table-wrapper">
-                <table id="waveTable">
-                    <thead>
-                        <tr>
-                            <th>Rua</th>
-                            <th>Rotas Validadas</th>
-                            <th>Progresso %</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </section>
-
-
-    </div>
-    </main>
-
-    <!-- Data Refresh Area -->
-    <div id="data-refresh" class="data-refresh">
-        <button class="btn-primary" id="btn-refresh">Atualizar Dados</button>
-        <p id="last-update" class="file-name-hint">Carregando dados...</p>
     </div>
     </div>
-    <script src="script.js"></script>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay">
+      <div class="loading-spinner"></div>
+      <p class="loading-texto">Baixando relatório...</p>
+      <p class="loading-sub" id="loading-sub">Conectando ao SPX</p>
+    </div>
+
+    <script src="renderer.js"></script>
 </body>
 
 </html>
