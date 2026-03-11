@@ -15,6 +15,12 @@ const SESSION_FILE = path.join(
   'session.json'
 );
 
+const STATIONS_FILE = path.join(
+  process.env.APPDATA || os.homedir(),
+  'shopee-dashboard-expedicao',
+  'stations.json'
+);
+
 const URL_HOME = 'https://spx.shopee.com.br/#/index';
 
 // =================== DETECTAR NAVEGADOR DO SISTEMA ===================
@@ -157,6 +163,35 @@ async function realizarLogin(onProgresso) {
     const sessao = await fs.readJson(SESSION_FILE);
     console.log(`[realizarLogin] Sessão salva: ${sessao.cookies?.length || 0} cookies em ${SESSION_FILE}`);
 
+    // Captura lista de stations + station atual enquanto o browser ainda está autenticado
+    try {
+      const stationsData = await page.evaluate(async () => {
+        const res = await fetch('/api/admin/basicserver/current_user/station_list/?count=999&status_list=0');
+        const data = await res.json();
+        return {
+          stations: data.data?.station_list || [],
+          currentId: data.data?.current_station_id || data.data?.station_id || null
+        };
+      });
+
+      if (stationsData.stations.length > 0) {
+        await fs.writeJson(STATIONS_FILE, stationsData.stations, { spaces: 2 });
+        console.log(`[realizarLogin] ${stationsData.stations.length} stations salvas em cache`);
+
+        // Tenta identificar a station atual pelo ID
+        if (stationsData.currentId) {
+          const atual = stationsData.stations.find(s => s.id === stationsData.currentId);
+          if (atual) {
+            const nomeArquivo = path.join(path.dirname(STATIONS_FILE), 'current_station.json');
+            await fs.writeJson(nomeArquivo, { name: atual.station_name || atual.name, id: atual.id }, { spaces: 2 });
+            console.log(`[realizarLogin] Station atual: ${atual.station_name || atual.name}`);
+          }
+        }
+      }
+    } catch (e) {
+      console.log(`[realizarLogin] Não foi possível capturar stations: ${e.message}`);
+    }
+
     await context.close();
     await browser.close();
 
@@ -186,14 +221,18 @@ async function carregarSessao() {
     // Extrai csrftoken dos cookies
     const csrfToken = cookies.find(c => c.name === 'csrftoken')?.value || '';
 
-    // Extrai device-id do localStorage salvo pelo storageState
+    // Extrai device-id — verifica cookies primeiro, depois localStorage
+    const deviceIdCookie = cookies.find(c =>
+      c.name === 'spx-admin-device-id' || c.name === 'device-id' || c.name === 'device_id'
+    )?.value || '';
+
     const spxOrigin = (sessao.origins || []).find(o => o.origin && o.origin.includes('shopee'));
     const localStorage = spxOrigin?.localStorage || [];
-    const deviceId = localStorage.find(item =>
-      item.name === 'spx-admin-device-id' ||
-      item.name === 'device_id' ||
-      item.name === 'deviceId'
+    const deviceIdLS = localStorage.find(item =>
+      item.name === 'spx-admin-device-id' || item.name === 'device_id' || item.name === 'deviceId'
     )?.value || '';
+
+    const deviceId = deviceIdCookie || deviceIdLS;
 
     return { cookie: cookieStr, csrfToken, deviceId };
 
@@ -557,6 +596,150 @@ async function buscarDadosCompleto(onProgresso) {
   }
 }
 
+// =================== BUSCAR LISTA DE STATIONS (via browser) ===================
+
+async function buscarListaStations() {
+  // Tenta ler do cache salvo durante o login
+  try {
+    if (await fs.pathExists(STATIONS_FILE)) {
+      const stations = await fs.readJson(STATIONS_FILE);
+      if (Array.isArray(stations) && stations.length > 0) {
+        console.log(`[buscarListaStations] ${stations.length} stations do cache`);
+        return { success: true, stations };
+      }
+    }
+  } catch (e) {
+    console.log(`[buscarListaStations] Cache inválido, tentando Playwright: ${e.message}`);
+  }
+
+  // Fallback: abre browser para buscar
+  let browser = null;
+  try {
+    if (!(await fs.pathExists(SESSION_FILE))) {
+      return { success: false, error: 'Sessão não encontrada.' };
+    }
+
+    const browserPath = await detectarNavegador();
+    browser = await chromium.launch({
+      executablePath: browserPath,
+      headless: true,
+      args: ['--no-sandbox', '--disable-gpu']
+    });
+
+    const context = await browser.newContext({
+      storageState: SESSION_FILE,
+      viewport: { width: 1280, height: 800 }
+    });
+
+    const page = await context.newPage();
+
+    // Carrega a página base para estabelecer contexto de sessão
+    await page.goto('https://spx.shopee.com.br/#/index', {
+      waitUntil: 'domcontentloaded', timeout: 30000
+    }).catch(() => {});
+    await page.waitForTimeout(1500);
+
+    const result = await page.evaluate(async () => {
+      try {
+        const res = await fetch('/api/admin/basicserver/current_user/station_list/?count=999&status_list=0');
+        const data = await res.json();
+        if (!data.data || !data.data.station_list) {
+          return { success: false, error: `retcode ${data.retcode}: ${data.message || ''}` };
+        }
+        return { success: true, stations: data.data.station_list };
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
+    });
+
+    await context.close();
+    await browser.close();
+    browser = null;
+
+    console.log(`[buscarListaStations] ${result.success ? result.stations?.length + ' stations' : 'ERRO: ' + result.error}`);
+
+    // Salva cache se obteve sucesso via Playwright
+    if (result.success && result.stations?.length > 0) {
+      await fs.writeJson(STATIONS_FILE, result.stations, { spaces: 2 }).catch(() => {});
+    }
+
+    return result;
+
+  } catch (err) {
+    if (browser) { try { await browser.close(); } catch(e) {} }
+    return { success: false, error: err.message };
+  }
+}
+
+// =================== MUDAR STATION (via browser) ===================
+
+async function mudarStation(stationId) {
+  let browser = null;
+  try {
+    if (!(await fs.pathExists(SESSION_FILE))) {
+      return { success: false, error: 'Sessão não encontrada.' };
+    }
+
+    const browserPath = await detectarNavegador();
+    browser = await chromium.launch({
+      executablePath: browserPath,
+      headless: true,
+      args: ['--no-sandbox', '--disable-gpu']
+    });
+
+    const context = await browser.newContext({
+      storageState: SESSION_FILE,
+      viewport: { width: 1280, height: 800 }
+    });
+
+    const page = await context.newPage();
+
+    await page.goto('https://spx.shopee.com.br/#/index', {
+      waitUntil: 'domcontentloaded', timeout: 30000
+    }).catch(() => {});
+    await page.waitForTimeout(1500);
+
+    const result = await page.evaluate(async (id) => {
+      try {
+        const getCookie = (name) => {
+          const match = document.cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]*)'));
+          return match ? match[1] : '';
+        };
+
+        const res = await fetch('/api/admin/basicserver/change_station/', {
+          method: 'POST',
+          headers: {
+            'accept': 'application/json',
+            'content-type': 'application/json;charset=UTF-8',
+            'x-csrftoken': getCookie('csrftoken'),
+            'device-id': getCookie('spx-admin-device-id')
+          },
+          credentials: 'include',
+          body: JSON.stringify({ station_id: parseInt(id) })
+        });
+
+        const data = await res.json();
+        return data.retcode === 0
+          ? { success: true }
+          : { success: false, error: `retcode ${data.retcode}: ${data.message || ''}` };
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
+    }, stationId);
+
+    await context.close();
+    await browser.close();
+    browser = null;
+
+    console.log(`[mudarStation] station_id=${stationId} | ${result.success ? 'OK' : 'ERRO: ' + result.error}`);
+    return result;
+
+  } catch (err) {
+    if (browser) { try { await browser.close(); } catch(e) {} }
+    return { success: false, error: err.message };
+  }
+}
+
 // =================== LIMPAR SESSÃO ===================
 
 async function limparSessao() {
@@ -565,10 +748,18 @@ async function limparSessao() {
       await fs.remove(SESSION_FILE);
       console.log('[limparSessao] Sessão removida.');
     }
+    if (await fs.pathExists(STATIONS_FILE)) {
+      await fs.remove(STATIONS_FILE);
+      console.log('[limparSessao] Cache de stations removido.');
+    }
+    const currentStationFile = path.join(path.dirname(STATIONS_FILE), 'current_station.json');
+    if (await fs.pathExists(currentStationFile)) {
+      await fs.remove(currentStationFile);
+    }
     return { success: true };
   } catch (err) {
     return { success: false, error: err.message };
   }
 }
 
-module.exports = { verificarSessao, realizarLogin, carregarSessao, limparSessao, descobrirTaskId, buscarDadosCompleto };
+module.exports = { verificarSessao, realizarLogin, carregarSessao, limparSessao, descobrirTaskId, buscarDadosCompleto, buscarListaStations, mudarStation };

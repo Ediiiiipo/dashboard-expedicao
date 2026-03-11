@@ -20,21 +20,177 @@ let dashboardData = {
 
 let charts = {};
 let taskIdAtual = '';
+let pollingInterval = null;
+let fetchEmAndamento = false;
+let stationCallback = null; // resolve após troca de station
+let rawAPIList = [];        // lista bruta da API para cálculos de produtividade
+
+const POLLING_MS = 3 * 60 * 1000; // 3 minutos
+
+// ======================= TEMA =======================
+
+function aplicarTema(tema) {
+    document.documentElement.setAttribute('data-theme', tema);
+    const iconLua = document.getElementById('icon-lua');
+    const iconSol = document.getElementById('icon-sol');
+    if (iconLua) iconLua.style.display = tema === 'light' ? 'none'  : 'block';
+    if (iconSol) iconSol.style.display = tema === 'light' ? 'block' : 'none';
+    localStorage.setItem('tema', tema);
+}
+
+// ======================= SELETOR DE STATION =======================
+
+function definirStationAtual(nome) {
+    localStorage.setItem('stationAtual', nome);
+    const el = document.getElementById('topbar-station-name');
+    if (!el) return;
+    el.textContent = nome;
+    el.classList.add('visible');
+    const banner = document.getElementById('station-banner');
+    if (banner) banner.classList.add('visible');
+}
+
+let stationsCarregadas = []; // cache para filtro
+
+async function mostrarSeletorStation() {
+    const modal  = document.getElementById('modal-station');
+    const lista  = document.getElementById('modal-station-list');
+    const search = document.getElementById('station-search');
+
+    lista.innerHTML = '<p style="color:var(--text-2);text-align:center">Carregando stations...</p>';
+    if (search) search.value = '';
+    modal.style.display = 'flex';
+    if (search) setTimeout(() => search.focus(), 100);
+
+    const res = await ipcRenderer.invoke('buscar-stations');
+
+    if (!res.success || !res.stations.length) {
+        lista.innerHTML = `<p style="color:var(--text-2);text-align:center">Erro ao carregar: ${res.error || 'nenhuma station encontrada'}</p>`;
+        return;
+    }
+
+    stationsCarregadas = res.stations;
+    renderStationList(stationsCarregadas);
+}
+
+function renderStationList(stations) {
+    const lista = document.getElementById('modal-station-list');
+    lista.innerHTML = '';
+
+    if (!stations.length) {
+        lista.innerHTML = '<p style="color:var(--text-2);text-align:center">Nenhuma station encontrada.</p>';
+        return;
+    }
+
+    for (const s of stations) {
+        const nome = s.station_name || s.name || 'Station';
+        const item = document.createElement('div');
+        item.className = 'station-item';
+        item.innerHTML = `<span>${nome}</span><span class="station-id">#${s.id}</span>`;
+        item.addEventListener('click', () => trocarStationESelecionada(s.id, nome));
+        lista.appendChild(item);
+    }
+}
+
+async function trocarStationESelecionada(stationId, stationName) {
+    const modal = document.getElementById('modal-station');
+    const lista = document.getElementById('modal-station-list');
+    const status = document.getElementById('last-update');
+
+    lista.innerHTML = `<p style="color:var(--text-2);text-align:center">Conectando à station "${stationName}"...</p>`;
+
+    const res = await ipcRenderer.invoke('trocar-station', { stationId });
+
+    if (!res.success) {
+        lista.innerHTML = `<p style="color:var(--accent-danger);text-align:center">Erro: ${res.error}</p>`;
+        return;
+    }
+
+    definirStationAtual(stationName);
+    modal.style.display = 'none';
+    if (status) status.textContent = `Station "${stationName}" ativada. Atualizando dados...`;
+
+    // Recarrega os dados com a nova station
+    fetchEmAndamento = false;
+    await autoDescobrirTaskId();
+}
 
 // ======================= INICIALIZAÇÃO =======================
 document.addEventListener('DOMContentLoaded', async () => {
     const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     document.getElementById('current-date').textContent = new Date().toLocaleDateString('pt-BR', dateOptions);
 
+    // Aplica tema salvo (padrão: dark)
+    aplicarTema(localStorage.getItem('tema') || 'dark');
+
+    // Restaura nome da station
+    try {
+        const stationArquivo = await ipcRenderer.invoke('obter-station-atual');
+        if (stationArquivo?.success && stationArquivo.name) {
+            definirStationAtual(stationArquivo.name);
+        } else {
+            const stationSalva = localStorage.getItem('stationAtual');
+            if (stationSalva) definirStationAtual(stationSalva);
+        }
+    } catch (e) {
+        const stationSalva = localStorage.getItem('stationAtual');
+        if (stationSalva) definirStationAtual(stationSalva);
+    }
+
+    // Botão de alternância de tema
+    document.getElementById('btn-toggle-tema').addEventListener('click', () => {
+        const atual = document.documentElement.getAttribute('data-theme');
+        aplicarTema(atual === 'light' ? 'dark' : 'light');
+    });
+
+    // Botão cancelar no modal de station
+    document.getElementById('btn-station-cancel').addEventListener('click', () => {
+        document.getElementById('modal-station').style.display = 'none';
+    });
+
+    // Filtro de busca no modal de station
+    document.getElementById('station-search').addEventListener('input', (e) => {
+        const termo = e.target.value.toLowerCase().trim();
+        if (!termo) { renderStationList(stationsCarregadas); return; }
+        renderStationList(stationsCarregadas.filter(s => {
+            const nome = (s.station_name || s.name || '').toLowerCase();
+            return nome.includes(termo);
+        }));
+    });
+
+    // Botão trocar station na sidebar
+    document.getElementById('btn-trocar-station').addEventListener('click', () => {
+        mostrarSeletorStation();
+    });
+
+    // Navegação entre views
+    const viewDashboard    = document.querySelector('.kpi-row')?.closest('main') || null;
+    const viewProdutividade = document.getElementById('view-produtividade');
+    const sections = ['kpi-row', 'gauges-ops-row', 'tables-grid'].map(c => document.querySelector('.' + c));
+
+    document.getElementById('btn-nav-dashboard').addEventListener('click', () => {
+        sections.forEach(s => { if (s) s.style.display = ''; });
+        viewProdutividade.style.display = 'none';
+        document.getElementById('btn-nav-dashboard').classList.add('active');
+        document.getElementById('btn-nav-produtividade').classList.remove('active');
+    });
+
+    document.getElementById('btn-nav-produtividade').addEventListener('click', () => {
+        sections.forEach(s => { if (s) s.style.display = 'none'; });
+        viewProdutividade.style.display = 'flex';
+        document.getElementById('btn-nav-produtividade').classList.add('active');
+        document.getElementById('btn-nav-dashboard').classList.remove('active');
+        renderProdutividade();
+    });
+
     // Progresso de login via IPC push do main
     ipcRenderer.on('progresso-login', (event, msg) => {
         document.getElementById('login-status').textContent = msg;
     });
 
-    // Progresso de descoberta de task_id
-    ipcRenderer.on('progresso-task', (event, msg) => {
-        const sub = document.getElementById('loading-sub');
-        if (sub) sub.textContent = msg;
+    // Progresso de busca de dados (etapas 1-4)
+    ipcRenderer.on('progresso-busca', (event, etapa) => {
+        avancarEtapa(etapa);
     });
 
     // Verifica sessão ao iniciar
@@ -84,9 +240,14 @@ async function entrarNoDashboard() {
     // Sempre busca via buscar-dados-completo ao iniciar
     // (faz warmup da sessão + pega sempre a tarefa mais recente)
     await autoDescobrirTaskId();
+
+    iniciarPolling();
 }
 
 async function autoDescobrirTaskId() {
+    if (fetchEmAndamento) return;
+    fetchEmAndamento = true;
+
     const status = document.getElementById('last-update');
     const btn = document.getElementById('btn-refresh');
 
@@ -110,9 +271,15 @@ async function autoDescobrirTaskId() {
             processAPIData(res.data);
             if (status) status.textContent = `Atualizado: ${new Date().toLocaleTimeString('pt-BR')} — ${total} rotas`;
             esconderLoading();
+        } else if (res.stationError) {
+            console.warn('[autoDescobrirTaskId] Station inválida. Abrindo seletor...');
+            esconderLoading();
+            fetchEmAndamento = false;
+            await mostrarSeletorStation();
         } else if (res.taskId) {
             // Capturou task_id mas não os dados — tenta API direta como fallback
             console.log(`[autoDescobrirTaskId] task_id=${res.taskId}, tentando API direta...`);
+            fetchEmAndamento = false; // libera a flag para o fetchData conseguir rodar
             await fetchData();
         } else {
             console.log(`[autoDescobrirTaskId] Falhou: ${res.error}`);
@@ -124,6 +291,7 @@ async function autoDescobrirTaskId() {
         if (status) status.textContent = `Erro: ${err.message}`;
         esconderLoading();
     } finally {
+        fetchEmAndamento = false;
         if (btn) btn.disabled = false;
     }
 }
@@ -149,6 +317,128 @@ document.getElementById('btn-login') && document.addEventListener('DOMContentLoa
     });
 });
 
+// ======================= POLLING AUTOMÁTICO =======================
+
+function iniciarPolling() {
+    if (pollingInterval) clearInterval(pollingInterval);
+
+    pollingInterval = setInterval(async () => {
+        if (fetchEmAndamento) return; // já tem fetch em curso, pula
+        await refreshSilencioso();
+    }, POLLING_MS);
+
+    console.log(`[polling] Monitoramento ativado — intervalo: ${POLLING_MS / 1000}s`);
+}
+
+function pararPolling() {
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+        console.log('[polling] Monitoramento pausado.');
+    }
+}
+
+async function refreshSilencioso() {
+    if (fetchEmAndamento) return;
+    fetchEmAndamento = true;
+
+    const status = document.getElementById('last-update');
+    const indicador = document.getElementById('polling-indicator');
+
+    if (indicador) indicador.classList.add('ativo');
+    if (status) status.textContent = 'Verificando atualizações...';
+
+    try {
+        const res = await ipcRenderer.invoke('buscar-dados-completo');
+
+        if (res.taskId) {
+            document.getElementById('input-task-id').value = res.taskId;
+            taskIdAtual = res.taskId;
+        }
+
+        if (res.success && res.data) {
+            const total = res.data?.data?.list?.length ?? 0;
+            console.log(`[polling] Dados atualizados: ${total} rotas | task_id=${res.taskId}`);
+            processAPIData(res.data);
+            if (status) status.textContent = `Atualizado: ${new Date().toLocaleTimeString('pt-BR')} — ${total} rotas`;
+        } else if (res.stationError) {
+            console.warn('[polling] Station inválida. Abrindo seletor...');
+            pararPolling();
+            await mostrarSeletorStation();
+        } else if (res.sessionExpired) {
+            console.warn('[polling] Sessão expirada. Parando monitoramento.');
+            pararPolling();
+            mostrarTelaLogin('Sessão expirada. Faça login novamente.');
+            document.getElementById('tela-login').style.display = 'flex';
+            document.getElementById('tela-dashboard').style.display = 'none';
+        } else {
+            console.log(`[polling] Sem novos dados: ${res.error || 'resposta vazia'}`);
+            if (status) status.textContent = `Última verificação: ${new Date().toLocaleTimeString('pt-BR')} — sem alterações`;
+        }
+    } catch (err) {
+        console.error('[polling] Erro:', err.message);
+    } finally {
+        fetchEmAndamento = false;
+        if (indicador) indicador.classList.remove('ativo');
+    }
+}
+
+// ======================= PROGRESSO DE ETAPAS =======================
+
+const ETAPAS = [
+    null,
+    { id: 'step-1', label: 'Conectando ao SPX',     pct: 15 },
+    { id: 'step-2', label: 'Buscando tarefa ativa', pct: 40 },
+    { id: 'step-3', label: 'Baixando rotas',        pct: 70 },
+    { id: 'step-4', label: 'Atualizando dashboard', pct: 95 },
+];
+
+function resetarEtapas() {
+    for (let i = 1; i <= 4; i++) {
+        const el = document.getElementById(`step-${i}`);
+        if (!el) continue;
+        el.classList.remove('ativo', 'concluido');
+        el.querySelector('.step-icon').textContent = '○';
+    }
+    const fill = document.getElementById('progress-bar-fill');
+    if (fill) fill.style.width = '0%';
+}
+
+function avancarEtapa(etapa) {
+    // Marca anteriores como concluídas
+    for (let i = 1; i < etapa; i++) {
+        const el = document.getElementById(`step-${i}`);
+        if (!el) continue;
+        el.classList.remove('ativo');
+        el.classList.add('concluido');
+        el.querySelector('.step-icon').textContent = '✓';
+    }
+    // Marca a atual como ativa
+    const atual = document.getElementById(`step-${etapa}`);
+    if (atual) {
+        atual.classList.add('ativo');
+        atual.querySelector('.step-icon').textContent = '●';
+    }
+    // Avança barra
+    const fill = document.getElementById('progress-bar-fill');
+    const titulo = document.getElementById('loading-titulo');
+    const info = ETAPAS[etapa];
+    if (fill && info) fill.style.width = `${info.pct}%`;
+    if (titulo && info) titulo.textContent = info.label + '...';
+}
+
+function concluirEtapas() {
+    for (let i = 1; i <= 4; i++) {
+        const el = document.getElementById(`step-${i}`);
+        if (!el) continue;
+        el.classList.remove('ativo');
+        el.classList.add('concluido');
+        el.querySelector('.step-icon').textContent = '✓';
+    }
+    const fill = document.getElementById('progress-bar-fill');
+    if (fill) fill.style.width = '100%';
+}
+
 // ======================= TASK ID =======================
 
 async function carregarTaskId() {
@@ -171,6 +461,7 @@ async function salvarTaskId() {
 function registrarEventos() {
     document.getElementById('btn-refresh').addEventListener('click', fetchData);
     document.getElementById('btn-login-novo').addEventListener('click', async () => {
+        pararPolling();
         await ipcRenderer.invoke('limpar-sessao');
         mostrarTelaLogin('Sessão encerrada. Faça login novamente.');
         document.getElementById('tela-login').style.display = 'flex';
@@ -197,25 +488,34 @@ function registrarEventos() {
 
 // ======================= BUSCAR DADOS =======================
 
-function mostrarLoading(sub = '') {
-    const overlay = document.getElementById('loading-overlay');
-    const subEl   = document.getElementById('loading-sub');
+function mostrarLoading(titulo = 'Carregando...') {
+    const overlay  = document.getElementById('loading-overlay');
+    const tituloEl = document.getElementById('loading-titulo');
     if (overlay) overlay.classList.add('ativo');
-    if (subEl && sub) subEl.textContent = sub;
+    if (tituloEl) tituloEl.textContent = titulo;
+    resetarEtapas();
 }
 
 function esconderLoading() {
-    const overlay = document.getElementById('loading-overlay');
-    if (overlay) overlay.classList.remove('ativo');
+    concluirEtapas();
+    // Pequeno delay para o usuário ver o 100% antes de fechar
+    setTimeout(() => {
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) overlay.classList.remove('ativo');
+    }, 500);
 }
 
 async function fetchData() {
+    if (fetchEmAndamento) return;
+    fetchEmAndamento = true;
+
     const btn    = document.getElementById('btn-refresh');
     const status = document.getElementById('last-update');
     const input  = document.getElementById('input-task-id');
     const taskId = input.value.trim();
 
     if (!taskId) {
+        fetchEmAndamento = false;
         // Destaca o campo e mostra mensagem
         input.classList.add('erro');
         setTimeout(() => input.classList.remove('erro'), 600);
@@ -234,7 +534,10 @@ async function fetchData() {
         console.log('[fetchData] Resposta:', res.success ? 'OK' : `ERRO: ${res.error}`);
 
         if (!res.success) {
-            if (res.sessionExpired) {
+            if (res.stationError) {
+                fetchEmAndamento = false;
+                await mostrarSeletorStation();
+            } else if (res.sessionExpired) {
                 mostrarTelaLogin('Sessão expirada. Faça login novamente.');
                 document.getElementById('tela-login').style.display = 'flex';
                 document.getElementById('tela-dashboard').style.display = 'none';
@@ -252,6 +555,7 @@ async function fetchData() {
         console.error('[fetchData] Exceção:', err);
         if (status) status.textContent = `Erro: ${err.message}`;
     } finally {
+        fetchEmAndamento = false;
         esconderLoading();
         if (btn) btn.disabled = false;
     }
@@ -262,6 +566,7 @@ async function fetchData() {
 function processAPIData(apiResponse) {
     const items = apiResponse.data.list || [];
     const summary = apiResponse.data;
+    rawAPIList = items; // salva para cálculos de produtividade
 
     let stats = {
         totalInitialPackages: 0, totalFinalPackages: 0,
@@ -342,6 +647,156 @@ function processAPIData(apiResponse) {
     const opCount = dashboardData.operatorProductivity ? dashboardData.operatorProductivity.length : 1;
     document.getElementById('opsCount').value = opCount;
     updateOpsTarget();
+
+    // Atualiza view de produtividade se estiver visível
+    if (document.getElementById('view-produtividade').style.display !== 'none') {
+        renderProdutividade();
+    }
+}
+
+// ======================= PRODUTIVIDADE =======================
+
+function calcularProdutividade(list) {
+    const validados = list.filter(item => item.validation_status === 4);
+    const map = {};
+
+    for (const item of validados) {
+        const rawOp = item.validation_operator || '';
+        const match = rawOp.match(/\[([^\]]+)\](.*)/);
+        const op = match ? match[2].trim() : rawOp.trim();
+        if (!op) continue;
+
+        const scanned  = (item.final_qty || 0);
+        const missort  = (item.missort_qty || 0);
+        const missing  = (item.missing_qty || 0);
+        const start    = item.validation_start_time || 0;
+        const end      = item.validation_end_time || 0;
+        const durMin   = (start && end && end > start) ? (end - start) / 60 : 0;
+
+        if (!map[op]) {
+            map[op] = { operator: op, totalATs: 0, totalScanned: 0, totalMissorted: 0, totalMissing: 0, totalDurationMin: 0 };
+        }
+        map[op].totalATs++;
+        map[op].totalScanned     += scanned;
+        map[op].totalMissorted   += missort;
+        map[op].totalMissing     += missing;
+        map[op].totalDurationMin += durMin;
+    }
+
+    const r = (v, d) => Math.round(v * 10 ** d) / 10 ** d;
+
+    let ops = Object.values(map).map(op => {
+        const opm        = op.totalDurationMin > 0 ? r(op.totalScanned / op.totalDurationMin, 2) : 0;
+        const avgDur     = op.totalATs > 0 ? r(op.totalDurationMin / op.totalATs, 1) : 0;
+        const missortPct = op.totalScanned > 0 ? r(op.totalMissorted / op.totalScanned * 100, 2) : 0;
+        const missingPct = op.totalScanned > 0 ? r(op.totalMissing   / op.totalScanned * 100, 2) : 0;
+        const errorRate  = op.totalScanned > 0 ? (op.totalMissorted + op.totalMissing) / op.totalScanned : 0;
+        return { ...op, opm, avgDur, missortPct, missingPct, errorRate };
+    });
+
+    if (ops.length === 0) return [];
+
+    const maxOPM     = Math.max(...ops.map(o => o.opm));
+    const minError   = Math.min(...ops.map(o => o.errorRate));
+    const maxError   = Math.max(...ops.map(o => o.errorRate));
+    const errorRange = maxError - minError;
+
+    ops = ops.map(op => {
+        const prodScore = maxOPM > 0 ? r(op.opm / maxOPM * 100, 1) : 0;
+        const qualScore = errorRange > 0 ? r((1 - (op.errorRate - minError) / errorRange) * 100, 1) : 100;
+        const combined  = r(prodScore * 0.6 + qualScore * 0.4, 1);
+        return { ...op, prodScore, qualScore, combined };
+    });
+
+    return ops.sort((a, b) => b.combined - a.combined);
+}
+
+function scoreColor(score) {
+    if (score >= 80) return '#22c55e';
+    if (score >= 60) return '#f59e0b';
+    return '#ef4444';
+}
+
+function fmtMin(min) {
+    const m = Math.floor(min);
+    const s = Math.round((min - m) * 60);
+    return `${m}m ${String(s).padStart(2,'0')}s`;
+}
+
+function renderProdutividade() {
+    const ops = calcularProdutividade(rawAPIList);
+
+    // KPIs
+    const totalATs   = ops.reduce((s, o) => s + o.totalATs, 0);
+    const avgOPM     = ops.length ? (ops.reduce((s, o) => s + o.opm, 0) / ops.length) : 0;
+    const avgAcur    = ops.length ? (ops.reduce((s, o) => s + (100 - o.errorRate * 100), 0) / ops.length) : 0;
+
+    document.getElementById('prod-kpi-ops').textContent      = ops.length;
+    document.getElementById('prod-kpi-ats').textContent      = totalATs;
+    document.getElementById('prod-kpi-giro').textContent     = avgOPM.toFixed(1);
+    document.getElementById('prod-kpi-acuracia').textContent = avgAcur.toFixed(1);
+    document.getElementById('prod-subtitle').textContent     = `${totalATs} ATs validados — ${ops.length} operadores ativos`;
+
+    // Insights
+    if (ops.length > 0) {
+        const fastest   = [...ops].sort((a, b) => b.opm - a.opm)[0];
+        const bestBal   = ops[0]; // já ordenado por combined
+        const lowMiss   = [...ops].sort((a, b) => a.missortPct - b.missortPct)[0];
+        const slowest   = [...ops].sort((a, b) => b.avgDur - a.avgDur)[0];
+        const mostATs   = [...ops].sort((a, b) => b.totalATs - a.totalATs)[0];
+        const avgDurAll = ops.reduce((s, o) => s + o.avgDur, 0) / ops.length;
+        const shortName = n => n.split(' ').slice(0, 2).join(' ');
+
+        document.getElementById('ins-fast-name').textContent = shortName(fastest.operator);
+        document.getElementById('ins-fast-val').textContent  = `${fastest.opm.toFixed(2)} ped/min`;
+
+        document.getElementById('ins-best-name').textContent = shortName(bestBal.operator);
+        document.getElementById('ins-best-val').textContent  = `Score ${bestBal.combined.toFixed(0)} — ${bestBal.opm.toFixed(2)} ped/min`;
+
+        document.getElementById('ins-qual-name').textContent = shortName(lowMiss.operator);
+        document.getElementById('ins-qual-val').textContent  = `${lowMiss.missortPct.toFixed(2)}% missort`;
+
+        document.getElementById('ins-attn-name').textContent = shortName(slowest.operator);
+        document.getElementById('ins-attn-val').textContent  = `${fmtMin(slowest.avgDur)}/AT (média ${fmtMin(avgDurAll)})`;
+
+        document.getElementById('ins-vol-name').textContent  = shortName(mostATs.operator);
+        document.getElementById('ins-vol-val').textContent   = `${mostATs.totalATs} ATs gerenciados`;
+    }
+
+    const tbody = document.querySelector('#prodTable tbody');
+    tbody.innerHTML = '';
+
+    ops.forEach((op, i) => {
+        const rank = i + 1;
+        const badgeClass = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
+        const color = scoreColor(op.combined);
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><span class="rank-badge ${badgeClass}">${rank}</span></td>
+            <td style="font-weight:500">${op.operator}</td>
+            <td>${op.totalATs}</td>
+            <td>${op.totalScanned.toLocaleString('pt-BR')}</td>
+            <td>${fmtMin(op.avgDur)}</td>
+            <td style="font-weight:600">${op.opm.toFixed(2)}</td>
+            <td style="color:${op.missortPct > 3 ? 'var(--accent-danger)' : 'var(--text-1)'}">${op.missortPct.toFixed(1)}%</td>
+            <td style="color:${op.missingPct > 3 ? 'var(--accent-danger)' : 'var(--text-1)'}">${op.missingPct.toFixed(1)}%</td>
+            <td>${op.prodScore.toFixed(0)}</td>
+            <td>${op.qualScore.toFixed(0)}</td>
+            <td>
+                <div class="score-bar-wrap">
+                    <div class="score-bar">
+                        <div class="score-bar-fill" style="width:${op.combined}%;background:${color}"></div>
+                    </div>
+                    <span class="score-val" style="color:${color}">${op.combined.toFixed(0)}</span>
+                </div>
+            </td>`;
+        tbody.appendChild(tr);
+    });
+
+    if (ops.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--text-2)">Nenhum AT validado ainda.</td></tr>';
+    }
 }
 
 // ======================= ATUALIZAR UI =======================

@@ -7,7 +7,7 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs-extra');
 const packageJson = require('./package.json');
-const { verificarSessao, realizarLogin, carregarSessao, limparSessao } = require('./login-shopee');
+const { verificarSessao, realizarLogin, carregarSessao, limparSessao, buscarListaStations, mudarStation } = require('./login-shopee');
 
 let mainWindow;
 
@@ -68,6 +68,20 @@ ipcMain.handle('limpar-sessao', async () => {
   return await limparSessao();
 });
 
+ipcMain.handle('obter-station-atual', async () => {
+  try {
+    const os = require('os');
+    const stationFile = path.join(process.env.APPDATA || os.homedir(), 'shopee-dashboard-expedicao', 'current_station.json');
+    if (await fs.pathExists(stationFile)) {
+      const data = await fs.readJson(stationFile);
+      return { success: true, name: data.name || '', id: data.id || null };
+    }
+    return { success: false };
+  } catch (e) {
+    return { success: false };
+  }
+});
+
 // =================== IPC: TASK ID ===================
 
 ipcMain.handle('carregar-task', async () => {
@@ -94,7 +108,13 @@ ipcMain.handle('salvar-task', async (event, taskId) => {
 // 1. Chama audit/task/list → pega validation_task_id da 1ª tarefa
 // 2. Chama audit/target/list com esse ID → retorna dados prontos para o dashboard
 
-ipcMain.handle('buscar-dados-completo', async () => {
+ipcMain.handle('buscar-dados-completo', async (event) => {
+  const enviarProgresso = (etapa) => {
+    try { event.sender.send('progresso-busca', etapa); } catch(e) {}
+  };
+
+  enviarProgresso(1); // Conectando ao SPX
+
   const sessao = await carregarSessao();
   if (!sessao || !sessao.cookie) {
     return { success: false, error: 'Sessão não encontrada. Faça login primeiro.' };
@@ -134,6 +154,7 @@ ipcMain.handle('buscar-dados-completo', async () => {
   try {
     const listUrl = 'https://spx.shopee.com.br/api/in-station/lmhub/audit/task/list?page_no=1&count=1';
     console.log('[buscar-dados-completo] Buscando lista de tarefas...');
+    enviarProgresso(2); // Buscando tarefa ativa
 
     let listRes;
     try {
@@ -152,6 +173,9 @@ ipcMain.handle('buscar-dados-completo', async () => {
     console.log(`[buscar-dados-completo] task/list retcode=${listData.retcode} | total=${listData.data?.total}`);
 
     if (listData.retcode !== 0) {
+      if (listData.retcode === -1000001) {
+        return { success: false, error: 'Station inválida para esta sessão.', stationError: true };
+      }
       const AUTH_ERRORS = [1, 4, 401, 403, 100001, 100002];
       if (AUTH_ERRORS.includes(listData.retcode)) {
         return { success: false, error: 'Sessão expirada. Use "Trocar conta" para renovar.', sessionExpired: true };
@@ -183,6 +207,7 @@ ipcMain.handle('buscar-dados-completo', async () => {
     } catch (e) {}
 
     // ── PASSO 2: tenta buscar dados com task_id numérico ou VT ──
+    enviarProgresso(3); // Baixando rotas
     // Tenta as variações de parâmetro que a API pode aceitar
     const tentativas = [];
     if (taskIdNumerico) tentativas.push(`task_id=${taskIdNumerico}`);
@@ -227,6 +252,7 @@ ipcMain.handle('buscar-dados-completo', async () => {
       };
     }
 
+    enviarProgresso(4); // Atualizando dashboard
     // Atualiza task_id salvo com o que funcionou
     try { await fs.writeJson(TASK_FILE, { taskId: taskIdUsado }, { spaces: 2 }); } catch(e) {}
 
@@ -283,17 +309,16 @@ ipcMain.handle('buscar-dados-shopee', async (event, { taskId }) => {
     const data = await res.json();
 
     if (data.retcode !== 0) {
-      // Retcodes de autenticação inválida (sessão expirada)
+      console.log(`[buscar-dados-shopee] retcode=${data.retcode} | msg=${data.message || ''}`);
+
+      if (data.retcode === -1000001) {
+        return { success: false, error: 'Station inválida para esta sessão.', stationError: true };
+      }
       const AUTH_ERRORS = [1, 4, 401, 403, 100001, 100002];
-      const sessionExpired = AUTH_ERRORS.includes(data.retcode);
-
-      console.log(`[buscar-dados-shopee] retcode=${data.retcode} | sessionExpired=${sessionExpired} | msg=${data.message || ''}`);
-
-      const errorMsg = sessionExpired
-        ? 'Sessão expirada. Clique em "Trocar conta" para renovar.'
-        : `Erro da API (retcode ${data.retcode}): ${data.message || 'Task ID inválido ou sem dados.'}`;
-
-      return { success: false, error: errorMsg, sessionExpired };
+      if (AUTH_ERRORS.includes(data.retcode)) {
+        return { success: false, error: 'Sessão expirada. Clique em "Trocar conta" para renovar.', sessionExpired: true };
+      }
+      return { success: false, error: `Erro da API (retcode ${data.retcode}): ${data.message || 'Task ID inválido ou sem dados.'}` };
     }
 
     const count = data?.data?.list?.length ?? 0;
@@ -303,4 +328,16 @@ ipcMain.handle('buscar-dados-shopee', async (event, { taskId }) => {
   } catch (err) {
     return { success: false, error: `Erro de conexão: ${err.message}` };
   }
+});
+
+// =================== IPC: BUSCAR STATIONS (via Playwright) ===================
+
+ipcMain.handle('buscar-stations', async () => {
+  return await buscarListaStations();
+});
+
+// =================== IPC: TROCAR STATION (via Playwright) ===================
+
+ipcMain.handle('trocar-station', async (event, { stationId }) => {
+  return await mudarStation(stationId);
 });

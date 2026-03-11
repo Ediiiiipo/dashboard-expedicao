@@ -1,326 +1,438 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard de Produtividade - Expedição</title>
+    <title>Shopee Hub — Dashboard Expedição</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-      /* ===== TELA DE LOGIN ===== */
-      #tela-login {
-        display: flex;
-        position: fixed;
-        inset: 0;
-        background: var(--bg-color);
-        z-index: 999;
-        align-items: center;
-        justify-content: center;
-        flex-direction: column;
-        gap: 1.5rem;
-      }
-      .login-box {
-        background: var(--card-bg);
-        border: 1px solid var(--border-color);
-        border-radius: 16px;
-        padding: 3rem 2.5rem;
-        width: 420px;
-        max-width: 90vw;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 1.5rem;
-        text-align: center;
-      }
-      .login-logo {
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
-        margin-bottom: 0.5rem;
-      }
-      .login-logo svg { width: 36px; height: 36px; color: #f65e2d; }
-      .login-logo span { font-family: var(--font-heading); font-size: 1.4rem; font-weight: 700; color: var(--text-primary); }
-      .login-subtitle { color: var(--text-secondary); font-size: 0.9rem; }
-      #login-status {
-        font-size: 0.85rem;
-        color: var(--text-secondary);
-        min-height: 1.2em;
-        text-align: center;
-      }
-
-      /* ===== TASK ID NO HEADER ===== */
-      .task-id-group {
-        display: flex;
-        flex-direction: column;
-        gap: 0.3rem;
-      }
-      .task-id-group label {
-        font-size: 0.75rem;
-        color: var(--text-secondary);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-      }
-      #input-task-id {
-        background: rgba(255,255,255,0.05);
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        color: var(--text-primary);
-        padding: 0.4rem 0.6rem;
-        font-size: 0.9rem;
-        width: 130px;
-      }
-      #input-task-id:focus { outline: none; border-color: var(--accent-primary); }
-      #input-task-id.erro { border-color: var(--accent-danger); animation: shake 0.3s; }
-      @keyframes shake {
-        0%,100% { transform: translateX(0); }
-        25% { transform: translateX(-4px); }
-        75% { transform: translateX(4px); }
-      }
-
-      /* ===== LOADING OVERLAY ===== */
-      #loading-overlay {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(15, 23, 42, 0.75);
-        z-index: 500;
-        align-items: center;
-        justify-content: center;
-        flex-direction: column;
-        gap: 1rem;
-      }
-      #loading-overlay.ativo { display: flex; }
-      .loading-spinner {
-        width: 48px;
-        height: 48px;
-        border: 4px solid rgba(255,255,255,0.1);
-        border-top-color: var(--accent-primary);
-        border-radius: 50%;
-        animation: spin 0.8s linear infinite;
-      }
-      @keyframes spin { to { transform: rotate(360deg); } }
-      .loading-texto { color: var(--text-primary); font-size: 1rem; font-weight: 500; }
-      .loading-sub { color: var(--text-secondary); font-size: 0.85rem; }
-    </style>
 </head>
-
 <body>
 
-    <!-- ===== TELA DE LOGIN ===== -->
-    <div id="tela-login">
-      <div class="login-box">
-        <div class="login-logo">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M1 6h14v9H1V6zm14 0h3l3 3.5V15h-6V6z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-            <circle cx="5.5" cy="17.5" r="2.5" stroke="currentColor" stroke-width="2" fill="none"/>
-            <circle cx="16.5" cy="17.5" r="2.5" stroke="currentColor" stroke-width="2" fill="none"/>
-            <path d="M8 17.5h6" stroke="currentColor" stroke-width="2"/>
-          </svg>
-          <span>SHOPEE HUB</span>
+<!-- ===== TELA DE LOGIN ===== -->
+<div id="tela-login">
+  <div class="login-box">
+    <div class="login-logo">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="40" height="40">
+        <path d="M1 6h14v9H1V6zm14 0h3l3 3.5V15h-6V6z" stroke="#f65e2d" stroke-width="2" stroke-linejoin="round"/>
+        <circle cx="5.5" cy="17.5" r="2.5" stroke="#f65e2d" stroke-width="2" fill="none"/>
+        <circle cx="16.5" cy="17.5" r="2.5" stroke="#f65e2d" stroke-width="2" fill="none"/>
+        <path d="M8 17.5h6" stroke="#f65e2d" stroke-width="2"/>
+      </svg>
+      <span class="login-brand">SHOPEE HUB</span>
+    </div>
+    <p class="login-subtitle">Dashboard de Expedição SPX</p>
+    <p id="login-status">Verificando sessão...</p>
+    <button class="btn-primary" id="btn-login">Entrar com conta Shopee</button>
+  </div>
+</div>
+
+<!-- ===== DASHBOARD ===== -->
+<div id="tela-dashboard" style="display:none;">
+  <div class="app-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <!-- Ícone sacolinha Shopee -->
+        <svg viewBox="0 0 24 24" fill="none" width="26" height="26">
+          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" stroke="#f65e2d" stroke-width="2" stroke-linejoin="round"/>
+          <line x1="3" y1="6" x2="21" y2="6" stroke="#f65e2d" stroke-width="2" stroke-linecap="round"/>
+          <path d="M16 10a4 4 0 0 1-8 0" stroke="#f65e2d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-item active" id="btn-nav-dashboard" title="Dashboard">
+          <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/></svg>
+        </button>
+        <button class="nav-item" id="btn-nav-produtividade" title="Produtividade">
+          <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <button class="nav-item" title="Rotas">
+          <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="nav-item" title="Configurações">
+          <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2"/></svg>
+        </button>
+      </nav>
+      <div class="sidebar-bottom">
+        <!-- Botão alternar tema claro/escuro -->
+        <button class="nav-item" id="btn-toggle-tema" title="Alternar tema">
+          <!-- ícone lua (tema escuro ativo) -->
+          <svg id="icon-lua" viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <!-- ícone sol (tema claro ativo) -->
+          <svg id="icon-sol" viewBox="0 0 24 24" fill="none" width="20" height="20" style="display:none;"><circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="2"/><line x1="12" y1="1" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="21" x2="12" y2="23" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="1" y1="12" x2="3" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="21" y1="12" x2="23" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <button class="nav-item" id="btn-trocar-station" title="Trocar station">
+          <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="9 22 9 12 15 12 15 22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="nav-item" id="btn-login-novo" title="Trocar conta">
+          <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="16 17 21 12 16 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+
+      <!-- TOPBAR -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <h1 class="topbar-title">Gestão <span class="topbar-accent">| Expedição</span></h1>
+          <div class="topbar-meta">
+            <p class="topbar-date" id="current-date"></p>
+          </div>
         </div>
-        <p class="login-subtitle">Dashboard de Expedição</p>
-        <p id="login-status">Verificando sessão...</p>
-        <button class="btn-primary" id="btn-login" style="width:100%;">Entrar com conta Shopee</button>
+
+        <div class="topbar-controls">
+          <div class="control-group">
+            <label>Início</label>
+            <input type="time" id="opsStart" class="ctrl-input">
+          </div>
+          <div class="control-group">
+            <label>Fim</label>
+            <input type="time" id="opsEnd" class="ctrl-input">
+          </div>
+          <div class="control-group">
+            <label>Operadores</label>
+            <input type="number" id="opsCount" class="ctrl-input" min="1" value="1" style="width:64px;">
+          </div>
+          <div class="control-group">
+            <label>Task ID</label>
+            <input type="text" id="input-task-id" class="ctrl-input" placeholder="Auto" style="width:175px;">
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <div class="status-pill" id="statusLight-wrap">
+            <span class="status-light" id="statusLight"></span>
+            <span class="status-text" id="statusText">--</span>
+          </div>
+          <button class="btn-primary" id="btn-refresh">
+            <svg viewBox="0 0 24 24" fill="none" width="14" height="14" style="margin-right:6px;"><polyline points="23 4 23 10 17 10" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Atualizar
+          </button>
+          <div class="last-update-wrap">
+            <p id="last-update" class="last-update-text">Aguardando...</p>
+            <span id="polling-indicator" class="polling-dot" title="Monitorando..."></span>
+          </div>
+        </div>
+      </header>
+
+      <!-- STATION BANNER -->
+      <div class="station-banner" id="station-banner">
+        <span class="topbar-station" id="topbar-station-name"></span>
+      </div>
+
+      <!-- DASHBOARD BODY -->
+      <main class="dash-body">
+
+        <!-- VIEW: PRODUTIVIDADE -->
+        <section id="view-produtividade" style="display:none">
+          <div class="prod-header">
+            <div>
+              <h2 class="prod-title">Produtividade por Operador</h2>
+              <p class="prod-subtitle" id="prod-subtitle">Baseado nos dados da tarefa atual</p>
+            </div>
+          </div>
+
+          <!-- KPI row resumo -->
+          <div class="prod-kpi-row">
+            <div class="prod-kpi-card">
+              <span class="prod-kpi-label">Operadores</span>
+              <span class="prod-kpi-val" id="prod-kpi-ops">0</span>
+            </div>
+            <div class="prod-kpi-card">
+              <span class="prod-kpi-label">Total ATs</span>
+              <span class="prod-kpi-val" id="prod-kpi-ats">0</span>
+            </div>
+            <div class="prod-kpi-card">
+              <span class="prod-kpi-label">Giro Médio</span>
+              <span class="prod-kpi-val" id="prod-kpi-giro">0</span>
+              <span class="prod-kpi-unit">ped/min</span>
+            </div>
+            <div class="prod-kpi-card">
+              <span class="prod-kpi-label">Acurácia Média</span>
+              <span class="prod-kpi-val" id="prod-kpi-acuracia">0</span>
+              <span class="prod-kpi-unit">%</span>
+            </div>
+          </div>
+
+          <!-- Insights dinâmicos -->
+          <div class="insights-row">
+            <div class="insight-card">
+              <span class="insight-icon">⚡</span>
+              <span class="insight-label">Mais rápido</span>
+              <span class="insight-name" id="ins-fast-name">—</span>
+              <span class="insight-value" id="ins-fast-val">—</span>
+            </div>
+            <div class="insight-card">
+              <span class="insight-icon">🏆</span>
+              <span class="insight-label">Melhor equilíbrio</span>
+              <span class="insight-name" id="ins-best-name">—</span>
+              <span class="insight-value" id="ins-best-val">—</span>
+            </div>
+            <div class="insight-card">
+              <span class="insight-icon">🎯</span>
+              <span class="insight-label">Menor missort</span>
+              <span class="insight-name" id="ins-qual-name">—</span>
+              <span class="insight-value" id="ins-qual-val">—</span>
+            </div>
+            <div class="insight-card">
+              <span class="insight-icon">⚠️</span>
+              <span class="insight-label">Atenção</span>
+              <span class="insight-name" id="ins-attn-name">—</span>
+              <span class="insight-value" id="ins-attn-val">—</span>
+            </div>
+            <div class="insight-card">
+              <span class="insight-icon">📦</span>
+              <span class="insight-label">Mais ATs</span>
+              <span class="insight-name" id="ins-vol-name">—</span>
+              <span class="insight-value" id="ins-vol-val">—</span>
+            </div>
+          </div>
+
+          <!-- Tabela ranking -->
+          <div class="table-card" style="margin-top:0">
+            <div class="table-card-header">
+              <span class="table-card-title">Ranking de Produtividade</span>
+              <span style="font-size:0.72rem;color:var(--text-2)">60% produtividade + 40% qualidade</span>
+            </div>
+            <div class="table-wrapper">
+              <table id="prodTable">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Operador</th>
+                    <th>ATs</th>
+                    <th>Pedidos</th>
+                    <th>Tempo Méd.</th>
+                    <th>Ped/min</th>
+                    <th>Missort</th>
+                    <th>Missing</th>
+                    <th>Score Prod.</th>
+                    <th>Score Qual.</th>
+                    <th>Score Geral</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ROW 1: KPI Cards -->
+        <section class="kpi-row">
+          <div class="kpi-card">
+            <div class="kpi-icon kpi-blue">
+              <svg viewBox="0 0 24 24" fill="none" width="18" height="18"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z" stroke="currentColor" stroke-width="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" stroke="currentColor" stroke-width="2"/></svg>
+            </div>
+            <div class="kpi-info">
+              <span class="kpi-label">Pacotes para Expedição</span>
+              <span class="kpi-value" id="statTotalPackages">0</span>
+              <span class="kpi-sub">Total Initial Orders</span>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon kpi-orange">
+              <svg viewBox="0 0 24 24" fill="none" width="18" height="18"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div class="kpi-info">
+              <span class="kpi-label">Rotas para Expedição</span>
+              <span class="kpi-value kpi-orange-text" id="statTotalRoutes">0</span>
+              <span class="kpi-sub">Total AT/TO</span>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon kpi-warn">
+              <svg viewBox="0 0 24 24" fill="none" width="18" height="18"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="currentColor" stroke-width="2"/><line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+            </div>
+            <div class="kpi-info">
+              <span class="kpi-label">Erros Operacionais</span>
+              <span class="kpi-value kpi-warn-text" id="statMissorted">0</span>
+              <span class="kpi-sub">Missorted Orders</span>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon kpi-danger">
+              <svg viewBox="0 0 24 24" fill="none" width="18" height="18"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </div>
+            <div class="kpi-info">
+              <span class="kpi-label">Sobras de Expedição</span>
+              <span class="kpi-value kpi-danger-text" id="statMissing">0</span>
+              <span class="kpi-sub">Missing Orders</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ROW 2: Gauges + Ops Target -->
+        <section class="gauges-ops-row">
+
+          <!-- 5 Gauges -->
+          <div class="gauges-cluster">
+            <div class="gauge-card">
+              <span class="gauge-title">Pacotes Expedidos</span>
+              <div class="gauge-container">
+                <canvas id="gaugeTotal"></canvas>
+                <div class="gauge-value" id="valTotal">0%</div>
+              </div>
+              <span class="gauge-label">Final vs Inicial</span>
+            </div>
+            <div class="gauge-card">
+              <span class="gauge-title">Validação de Rotas</span>
+              <div class="gauge-container">
+                <canvas id="gaugeRoutes"></canvas>
+                <div class="gauge-value" id="valRoutes">0%</div>
+              </div>
+              <span class="gauge-label">Rotas Concluídas</span>
+            </div>
+            <div class="gauge-card gauge-card--hero">
+              <span class="gauge-title">Giro de Bancada / Hora</span>
+              <div class="gauge-container gauge-container--large">
+                <canvas id="gaugeBenchTurnover"></canvas>
+                <div class="gauge-value gauge-value--large" id="valBenchTurnover">0</div>
+              </div>
+              <span class="gauge-label">Média Rotas/Hora</span>
+            </div>
+            <div class="gauge-card">
+              <span class="gauge-title">Acuracidade Processamento</span>
+              <div class="gauge-container">
+                <canvas id="gaugeAccuracy"></canvas>
+                <div class="gauge-value" id="valAccuracy">0%</div>
+              </div>
+              <span class="gauge-label">Livre de Erros</span>
+            </div>
+            <div class="gauge-card">
+              <span class="gauge-title">Acuracidade Expedição</span>
+              <div class="gauge-container">
+                <canvas id="gaugeExpedition"></canvas>
+                <div class="gauge-value" id="valExpedition">0%</div>
+              </div>
+              <span class="gauge-label">Total vs Sobras</span>
+            </div>
+          </div>
+
+          <!-- Ops Target Card -->
+          <div class="ops-target-card">
+            <span class="card-label">Meta Giro de Bancada</span>
+            <div class="gauge-container gauge-container--large" style="margin:0.5rem auto;">
+              <canvas id="gaugeTargetTurnover"></canvas>
+              <div class="gauge-value gauge-value--large" id="valTargetTurnover">0</div>
+            </div>
+            <span class="gauge-label" style="text-align:center;display:block;">Meta Rotas/Hora</span>
+          </div>
+
+        </section>
+
+        <!-- ROW 3: Tables Grid -->
+        <section class="tables-grid">
+          <div class="table-card">
+            <div class="table-card-header">
+              <span class="table-card-title">Produtividade por Colaborador</span>
+            </div>
+            <div class="table-wrapper">
+              <table id="productivityTable">
+                <thead><tr><th>Colaborador</th><th>Rotas</th><th>Rotas/h</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="table-card">
+            <div class="table-card-header">
+              <span class="table-card-title">Tempo Médio de Carregamento</span>
+            </div>
+            <div class="table-wrapper">
+              <table id="timeTable">
+                <thead><tr><th>Colaborador</th><th>Tempo Médio</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="table-card">
+            <div class="table-card-header">
+              <span class="table-card-title">Acuracidade por Colaborador</span>
+            </div>
+            <div class="table-wrapper">
+              <table id="accuracyTable">
+                <thead><tr><th>Colaborador</th><th>Sobras</th><th>Rotas</th><th>Acur. %</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="table-card">
+            <div class="table-card-header">
+              <span class="table-card-title">Acuracidade por Rua</span>
+            </div>
+            <div class="table-wrapper">
+              <table id="corridorTable">
+                <thead><tr><th>Rua</th><th>Erros</th><th>Acur. %</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="table-card">
+            <div class="table-card-header">
+              <span class="table-card-title">Carregamento por Onda</span>
+            </div>
+            <div class="table-wrapper">
+              <table id="waveTable">
+                <thead><tr><th>Rua</th><th>Validadas</th><th>Progresso</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div><!-- /main-content -->
+  </div><!-- /app-layout -->
+</div><!-- /tela-dashboard -->
+
+<!-- ===== LOADING OVERLAY ===== -->
+<div id="loading-overlay">
+  <div class="loading-card">
+    <div class="loading-spinner"></div>
+    <p class="loading-titulo" id="loading-titulo">Carregando...</p>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progress-bar-fill"></div>
+    </div>
+    <div class="progress-steps">
+      <div class="progress-step" id="step-1">
+        <span class="step-icon">○</span>
+        <span class="step-label">Conectando ao SPX</span>
+      </div>
+      <div class="progress-step" id="step-2">
+        <span class="step-icon">○</span>
+        <span class="step-label">Buscando tarefa ativa</span>
+      </div>
+      <div class="progress-step" id="step-3">
+        <span class="step-icon">○</span>
+        <span class="step-label">Baixando rotas</span>
+      </div>
+      <div class="progress-step" id="step-4">
+        <span class="step-icon">○</span>
+        <span class="step-label">Atualizando dashboard</span>
       </div>
     </div>
+  </div>
+</div>
 
-    <!-- ===== DASHBOARD ===== -->
-    <div id="tela-dashboard" style="display:none;">
-    <div class="container">
-        <header>
-            <div class="logo-section">
-                <div class="brand-header">
-                    <svg class="truck-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M1 6h14v9H1V6zm14 0h3l3 3.5V15h-6V6z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
-                        <circle cx="5.5" cy="17.5" r="2.5" stroke="currentColor" stroke-width="2" fill="none" />
-                        <circle cx="16.5" cy="17.5" r="2.5" stroke="currentColor" stroke-width="2" fill="none" />
-                        <path d="M8 17.5h6" stroke="currentColor" stroke-width="2" />
-                    </svg>
-                    <span class="brand-shopee-ops">SHOPEE HUB</span>
-                </div>
-                <p class="brand-subtitle">Expedition Insight</p>
-            </div>
-            <div class="header-ops-clock">
-                <div class="input-card header-input-card">
-                    <span class="stat-title">Janela de Ops Clock</span>
-                    <div class="ops-inputs">
-                        <div class="input-group">
-                            <label for="opsStart">Início</label>
-                            <input type="time" id="opsStart" class="ops-time-input">
-                        </div>
-                        <div class="input-group">
-                            <label for="opsEnd">Fim</label>
-                            <input type="time" id="opsEnd" class="ops-time-input">
-                        </div>
-                        <div class="input-group">
-                            <label for="opsCount">Operadores</label>
-                            <input type="number" id="opsCount" class="ops-time-input" min="1" value="1" style="width: 60px;">
-                        </div>
-                        <div class="task-id-group">
-                            <label for="input-task-id">Task ID</label>
-                            <input type="text" id="input-task-id" placeholder="Ex: 123456">
-                        </div>
-                    </div>
-                </div>
-                <div class="gauge-card header-gauge-card">
-                    <h3>Meta giro de bancada</h3>
-                    <div class="gauge-container header-gauge-container">
-                        <canvas id="gaugeTargetTurnover"></canvas>
-                        <div class="gauge-value" id="valTargetTurnover">0</div>
-                    </div>
-                    <p class="gauge-label">Meta Final/Hora</p>
-                </div>
-                <div class="status-card header-status-card">
-                    <h3 class="status-title">Performance Operacional</h3>
-                    <div class="status-light" id="statusLight"></div>
-                    <span class="status-text" id="statusText">--</span>
-                </div>
-            </div>
-            <div class="date-section">
-                <p id="current-date"></p>
-            </div>
-        </header>
-
-        <main>
-            <!-- Gauges Section -->
-            <section class="gauges-grid">
-                <div class="gauge-card">
-                    <h3>Pacotes Expedidos</h3>
-                    <div class="gauge-container">
-                        <canvas id="gaugeTotal"></canvas>
-                        <div class="gauge-value" id="valTotal">0%</div>
-                    </div>
-                    <p class="gauge-label">Final vs Inicial</p>
-                </div>
-                <div class="gauge-card">
-                    <h3>Validação de Rotas</h3>
-                    <div class="gauge-container">
-                        <canvas id="gaugeRoutes"></canvas>
-                        <div class="gauge-value" id="valRoutes">0%</div>
-                    </div>
-                    <p class="gauge-label">Rotas Concluídas</p>
-                </div>
-                <div class="gauge-card">
-                    <h3>Giro de Bancada / Hora</h3>
-                    <div class="gauge-container">
-                        <canvas id="gaugeBenchTurnover"></canvas>
-                        <div class="gauge-value" id="valBenchTurnover">0</div>
-                    </div>
-                    <p class="gauge-label">Média Rotas/Hora</p>
-                </div>
-                <div class="gauge-card">
-                    <h3>Acuracidade de Processamento</h3>
-                    <div class="gauge-container">
-                        <canvas id="gaugeAccuracy"></canvas>
-                        <div class="gauge-value" id="valAccuracy">0%</div>
-                    </div>
-                    <p class="gauge-label">Livre de Erros</p>
-                </div>
-                <div class="gauge-card">
-                    <h3>Acuracidade de Expedição</h3>
-                    <div class="gauge-container">
-                        <canvas id="gaugeExpedition"></canvas>
-                        <div class="gauge-value" id="valExpedition">0%</div>
-                    </div>
-                    <p class="gauge-label">Total vs Sobras</p>
-                </div>
-            </section>
-
-            <!-- Stats Grid -->
-            <section class="stats-grid">
-                <div class="stat-card">
-                    <span class="stat-title">Pacotes para Expedição</span>
-                    <span class="stat-value" id="statTotalPackages">0</span>
-                    <span class="stat-sub">Total Initial Orders</span>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-title">Rotas para Expedição</span>
-                    <span class="stat-value" id="statTotalRoutes">0</span>
-                    <span class="stat-sub">Total AT/TO</span>
-                </div>
-                <div class="stat-card warning">
-                    <span class="stat-title">Erros Operacionais</span>
-                    <span class="stat-value" id="statMissorted">0</span>
-                    <span class="stat-sub">Missorted Orders</span>
-                </div>
-                <div class="stat-card danger">
-                    <span class="stat-title">Sobras de Expedição</span>
-                    <span class="stat-value" id="statMissing">0</span>
-                    <span class="stat-sub">Missing Orders</span>
-                </div>
-            </section>
-
-            <!-- Tables Section -->
-            <div class="visuals-grid">
-                <section class="table-card card">
-                    <h3>Produtividade por Colaborador</h3>
-                    <div class="table-wrapper">
-                        <table id="productivityTable">
-                            <thead><tr><th>Colaborador</th><th>Rotas</th><th>Rotas/Hora</th></tr></thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </section>
-                <section class="table-card card">
-                    <h3>Tempo Médio de Carregamento</h3>
-                    <div class="table-wrapper">
-                        <table id="timeTable">
-                            <thead><tr><th>Colaborador</th><th>Tempo Médio</th></tr></thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </section>
-                <section class="table-card card">
-                    <h3>Acuracidade por Colaborador</h3>
-                    <div class="table-wrapper">
-                        <table id="accuracyTable">
-                            <thead><tr><th>Colaborador</th><th>Sobras (Missing)</th><th>Total Rotas</th><th>Acuracidade %</th></tr></thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </section>
-                <section class="table-card card">
-                    <h3>Acuracidade por Rua</h3>
-                    <div class="table-wrapper">
-                        <table id="corridorTable">
-                            <thead><tr><th>Rua</th><th>Erros (Missort)</th><th>Acuracidade %</th></tr></thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </section>
-                <section class="table-card card">
-                    <h3>Carregamento por Onda</h3>
-                    <div class="table-wrapper">
-                        <table id="waveTable">
-                            <thead><tr><th>Rua</th><th>Rotas Validadas</th><th>Progresso %</th></tr></thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </section>
-            </div>
-        </main>
-
-        <!-- Data Refresh Area -->
-        <div id="data-refresh" class="data-refresh">
-            <button class="btn-primary" id="btn-refresh">Atualizar</button>
-            <button class="btn-secondary" id="btn-login-novo" style="margin-left:0.75rem;">Trocar conta</button>
-            <p id="last-update" class="file-name-hint">Aguardando Task ID...</p>
-        </div>
+<!-- ===== MODAL SELETOR DE STATION ===== -->
+<div id="modal-station" style="display:none">
+  <div class="modal-station-card">
+    <h3 class="modal-station-title">Selecionar Station</h3>
+    <p class="modal-station-desc">Selecione ou busque a station desejada.</p>
+    <input type="text" id="station-search" class="station-search-input" placeholder="Buscar station..." autocomplete="off">
+    <div class="modal-station-list" id="modal-station-list">
+      <p style="color:var(--text-2);text-align:center">Carregando stations...</p>
     </div>
-    </div>
+    <button class="modal-station-cancel" id="btn-station-cancel">Cancelar</button>
+  </div>
+</div>
 
-    <!-- Loading Overlay -->
-    <div id="loading-overlay">
-      <div class="loading-spinner"></div>
-      <p class="loading-texto">Baixando relatório...</p>
-      <p class="loading-sub" id="loading-sub">Conectando ao SPX</p>
-    </div>
-
-    <script src="renderer.js"></script>
+<script src="renderer.js"></script>
 </body>
-
 </html>
