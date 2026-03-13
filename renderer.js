@@ -656,6 +656,9 @@ function processAPIData(apiResponse) {
 
 // ======================= PRODUTIVIDADE =======================
 
+const PROD_MIN_ATS            = 3;  // mínimo de ATs para entrar no ranking
+const PROD_CONFIDENCE_THRESH  = 5;  // ATs para confiança 100%
+
 function calcularProdutividade(list) {
     const validados = list.filter(item => item.validation_status === 4);
     const map = {};
@@ -686,29 +689,36 @@ function calcularProdutividade(list) {
     const r = (v, d) => Math.round(v * 10 ** d) / 10 ** d;
 
     let ops = Object.values(map).map(op => {
-        const opm        = op.totalDurationMin > 0 ? r(op.totalScanned / op.totalDurationMin, 2) : 0;
-        const avgDur     = op.totalATs > 0 ? r(op.totalDurationMin / op.totalATs, 1) : 0;
-        const missortPct = op.totalScanned > 0 ? r(op.totalMissorted / op.totalScanned * 100, 2) : 0;
-        const missingPct = op.totalScanned > 0 ? r(op.totalMissing   / op.totalScanned * 100, 2) : 0;
-        const errorRate  = op.totalScanned > 0 ? (op.totalMissorted + op.totalMissing) / op.totalScanned : 0;
-        return { ...op, opm, avgDur, missortPct, missingPct, errorRate };
+        const opm             = op.totalDurationMin > 0 ? r(op.totalScanned / op.totalDurationMin, 2) : 0;
+        const avgDur          = op.totalATs > 0 ? r(op.totalDurationMin / op.totalATs, 1) : 0;
+        const missortPct      = op.totalScanned > 0 ? r(op.totalMissorted / op.totalScanned * 100, 2) : 0;
+        const missingPct      = op.totalScanned > 0 ? r(op.totalMissing   / op.totalScanned * 100, 2) : 0;
+        const errorRate       = op.totalScanned > 0 ? (op.totalMissorted + op.totalMissing) / op.totalScanned : 0;
+        const eligible        = op.totalATs >= PROD_MIN_ATS;
+        const confidenceFactor = r(Math.min(op.totalATs / PROD_CONFIDENCE_THRESH, 1.0), 2);
+        return { ...op, opm, avgDur, missortPct, missingPct, errorRate, eligible, confidenceFactor };
     });
 
     if (ops.length === 0) return [];
 
-    const maxOPM     = Math.max(...ops.map(o => o.opm));
-    const minError   = Math.min(...ops.map(o => o.errorRate));
-    const maxError   = Math.max(...ops.map(o => o.errorRate));
+    // Scores calculados apenas sobre elegíveis para não distorcer o benchmark
+    const elegíveis  = ops.filter(o => o.eligible);
+    const maxOPM     = elegíveis.length ? Math.max(...elegíveis.map(o => o.opm))       : Math.max(...ops.map(o => o.opm));
+    const minError   = elegíveis.length ? Math.min(...elegíveis.map(o => o.errorRate)) : Math.min(...ops.map(o => o.errorRate));
+    const maxError   = elegíveis.length ? Math.max(...elegíveis.map(o => o.errorRate)) : Math.max(...ops.map(o => o.errorRate));
     const errorRange = maxError - minError;
 
     ops = ops.map(op => {
-        const prodScore = maxOPM > 0 ? r(op.opm / maxOPM * 100, 1) : 0;
-        const qualScore = errorRange > 0 ? r((1 - (op.errorRate - minError) / errorRange) * 100, 1) : 100;
-        const combined  = r(prodScore * 0.6 + qualScore * 0.4, 1);
-        return { ...op, prodScore, qualScore, combined };
+        const prodScore    = maxOPM > 0 ? r(op.opm / maxOPM * 100, 1) : 0;
+        const qualScore    = errorRange > 0 ? r((1 - (op.errorRate - minError) / errorRange) * 100, 1) : 100;
+        const combined     = r(prodScore * 0.6 + qualScore * 0.4, 1);
+        const adjustedScore = r(combined * op.confidenceFactor, 1);
+        return { ...op, prodScore, qualScore, combined, adjustedScore };
     });
 
-    return ops.sort((a, b) => b.combined - a.combined);
+    const ranking    = ops.filter(o =>  o.eligible).sort((a, b) => b.adjustedScore - a.adjustedScore);
+    const excluidos  = ops.filter(o => !o.eligible).sort((a, b) => b.opm - a.opm);
+    return [...ranking, ...excluidos];
 }
 
 function scoreColor(score) {
@@ -737,21 +747,23 @@ function renderProdutividade() {
     document.getElementById('prod-kpi-acuracia').textContent = avgAcur.toFixed(1);
     document.getElementById('prod-subtitle').textContent     = `${totalATs} ATs validados — ${ops.length} operadores ativos`;
 
-    // Insights
-    if (ops.length > 0) {
-        const fastest   = [...ops].sort((a, b) => b.opm - a.opm)[0];
-        const bestBal   = ops[0]; // já ordenado por combined
-        const lowMiss   = [...ops].sort((a, b) => a.missortPct - b.missortPct)[0];
-        const slowest   = [...ops].sort((a, b) => b.avgDur - a.avgDur)[0];
+    // Insights — baseados apenas em elegíveis para evitar distorção de amostras pequenas
+    const elegíveisInsight = ops.filter(o => o.eligible);
+    const baseInsight = elegíveisInsight.length > 0 ? elegíveisInsight : ops;
+    if (baseInsight.length > 0) {
+        const fastest   = [...baseInsight].sort((a, b) => b.opm - a.opm)[0];
+        const bestBal   = baseInsight[0]; // já ordenado por adjustedScore
+        const lowMiss   = [...baseInsight].sort((a, b) => a.missortPct - b.missortPct)[0];
+        const slowest   = [...baseInsight].sort((a, b) => b.avgDur - a.avgDur)[0];
         const mostATs   = [...ops].sort((a, b) => b.totalATs - a.totalATs)[0];
-        const avgDurAll = ops.reduce((s, o) => s + o.avgDur, 0) / ops.length;
+        const avgDurAll = baseInsight.reduce((s, o) => s + o.avgDur, 0) / baseInsight.length;
         const shortName = n => n.split(' ').slice(0, 2).join(' ');
 
         document.getElementById('ins-fast-name').textContent = shortName(fastest.operator);
         document.getElementById('ins-fast-val').textContent  = `${fastest.opm.toFixed(2)} ped/min`;
 
         document.getElementById('ins-best-name').textContent = shortName(bestBal.operator);
-        document.getElementById('ins-best-val').textContent  = `Score ${bestBal.combined.toFixed(0)} — ${bestBal.opm.toFixed(2)} ped/min`;
+        document.getElementById('ins-best-val').textContent  = `Score ${bestBal.adjustedScore.toFixed(0)} — ${bestBal.opm.toFixed(2)} ped/min`;
 
         document.getElementById('ins-qual-name').textContent = shortName(lowMiss.operator);
         document.getElementById('ins-qual-val').textContent  = `${lowMiss.missortPct.toFixed(2)}% missort`;
@@ -766,15 +778,22 @@ function renderProdutividade() {
     const tbody = document.querySelector('#prodTable tbody');
     tbody.innerHTML = '';
 
-    ops.forEach((op, i) => {
-        const rank = i + 1;
-        const badgeClass = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
-        const color = scoreColor(op.combined);
+    let rankPos = 0;
+    ops.forEach((op) => {
+        const isEligible = op.eligible;
+        if (isEligible) rankPos++;
+        const rank = isEligible ? rankPos : '—';
+        const badgeClass = rankPos === 1 && isEligible ? 'gold'
+                         : rankPos === 2 && isEligible ? 'silver'
+                         : rankPos === 3 && isEligible ? 'bronze' : '';
+        const scoreDisplay = isEligible ? op.adjustedScore : op.combined;
+        const color = isEligible ? scoreColor(op.adjustedScore) : '#94a3b8';
 
         const tr = document.createElement('tr');
+        if (!isEligible) tr.style.opacity = '0.6';
         tr.innerHTML = `
             <td><span class="rank-badge ${badgeClass}">${rank}</span></td>
-            <td style="font-weight:500">${op.operator}</td>
+            <td style="font-weight:500">${op.operator}${!isEligible ? ' <span title="Amostra insuficiente (menos de ' + PROD_MIN_ATS + ' ATs)" style="color:#f59e0b;font-size:0.75rem">⚠</span>' : ''}</td>
             <td>${op.totalATs}</td>
             <td>${op.totalScanned.toLocaleString('pt-BR')}</td>
             <td>${fmtMin(op.avgDur)}</td>
@@ -786,9 +805,9 @@ function renderProdutividade() {
             <td>
                 <div class="score-bar-wrap">
                     <div class="score-bar">
-                        <div class="score-bar-fill" style="width:${op.combined}%;background:${color}"></div>
+                        <div class="score-bar-fill" style="width:${scoreDisplay}%;background:${color}"></div>
                     </div>
-                    <span class="score-val" style="color:${color}">${op.combined.toFixed(0)}</span>
+                    <span class="score-val" style="color:${color}">${scoreDisplay.toFixed(0)}</span>
                 </div>
             </td>`;
         tbody.appendChild(tr);
